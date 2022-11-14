@@ -1,6 +1,7 @@
 pragma solidity ^0.8.0;
 import "./openzeppelin-contracts/contracts/access/Ownable.sol";
 import "./openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "./openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 interface I1155{
     function mint(address to, uint256 id, uint256 amount, bytes memory data) external;
@@ -13,10 +14,17 @@ contract Offer1155 is Ownable{
         uint32 maxSupply;
         uint32 supply;
         uint32 startTime;
+        uint32 limitPerAddr;
         address currency;
         uint256 price;
     }
     Offer[] public offers;
+    mapping(uint256 => mapping(address => uint256)) public minted;
+    address public signer;
+    
+    constructor(address _signer) {
+        signer = _signer;
+    }
     
     function offerLength() external view returns(uint256){
         return offers.length;
@@ -51,6 +59,14 @@ contract Offer1155 is Ownable{
         offers[round].price = price;
     }
     
+    function setLimitPerAddr(uint256 round, uint32 limitPerAddr) external onlyOwner{
+        offers[round].limitPerAddr = limitPerAddr;
+    }
+    
+    function setSigner(address _signer) external onlyOwner{
+        signer = _signer;
+    }
+    
     function claim(address currency, address to, uint256 amount) external onlyOwner{
         if(currency == address(0)){
             payable(to).transfer(amount);
@@ -59,7 +75,10 @@ contract Offer1155 is Ownable{
         }
     }
     
-    function mint(uint256 round, uint32 amount) external payable{
+    function mint(uint256 round, uint32 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external payable{
+        require(block.timestamp <= deadline, "timeout");
+        bytes32 hash = keccak256(abi.encodePacked(block.chainid, address(this), "mint", round, msg.sender, deadline));
+        require(ECDSA.recover(hash, v, r, s) == signer, "not signer");
         offers[round].supply -= amount;
         Offer memory offer = offers[round];
         require(offer.startTime <= block.timestamp, "not start");
@@ -70,5 +89,7 @@ contract Offer1155 is Ownable{
             IERC20(offer.currency).transferFrom(msg.sender, address(this), currencyAmount);
         }
         I1155(offer.nft).mint(msg.sender, offer.id, amount, hex"");
+        minted[round][msg.sender] += amount;
+        require(minted[round][msg.sender] <= offer.limitPerAddr, "limitPerAddr");
     }
 }
