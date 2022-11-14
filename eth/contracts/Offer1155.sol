@@ -15,12 +15,14 @@ contract Offer1155 is Ownable{
         uint32 supply;
         uint32 startTime;
         uint32 limitPerAddr;
+        uint32 discount;
         address currency;
         uint256 price;
     }
     Offer[] public offers;
     mapping(uint256 => mapping(address => uint256)) public minted;
     address public signer;
+    event Mint(uint256 indexed round, address indexed account, uint256 amount, uint256 currencyAmount);
     
     constructor(address _signer) {
         signer = _signer;
@@ -63,6 +65,10 @@ contract Offer1155 is Ownable{
         offers[round].limitPerAddr = limitPerAddr;
     }
     
+    function setDiscount(uint256 round, uint32 discount) external onlyOwner{
+        offers[round].discount = discount;
+    }
+    
     function setSigner(address _signer) external onlyOwner{
         signer = _signer;
     }
@@ -75,21 +81,31 @@ contract Offer1155 is Ownable{
         }
     }
     
-    function mint(uint256 round, uint32 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external payable{
-        require(block.timestamp <= deadline, "timeout");
-        bytes32 hash = keccak256(abi.encodePacked(block.chainid, address(this), "mint", round, msg.sender, deadline));
-        require(ECDSA.recover(hash, v, r, s) == signer, "not signer");
+    function _mint(uint256 round, uint32 amount, bool whitelist) internal{
         offers[round].supply -= amount;
         Offer memory offer = offers[round];
         require(offer.startTime <= block.timestamp, "not start");
+        minted[round][msg.sender] += amount;
+        require(offer.limitPerAddr == 0 || minted[round][msg.sender] <= offer.limitPerAddr, "limitPerAddr");
         uint256 currencyAmount = amount * offer.price;
+        if(whitelist) currencyAmount = currencyAmount * offer.discount / 100;
         if(offer.currency == address(0)){
             require(msg.value == currencyAmount, "invalid value");
         }else if(currencyAmount > 0){
             IERC20(offer.currency).transferFrom(msg.sender, address(this), currencyAmount);
         }
         I1155(offer.nft).mint(msg.sender, offer.id, amount, hex"");
-        minted[round][msg.sender] += amount;
-        require(minted[round][msg.sender] <= offer.limitPerAddr, "limitPerAddr");
+        emit Mint(round, msg.sender, amount, currencyAmount);
+    }
+    
+    function mint(uint256 round, uint32 amount) external{
+        _mint(round, amount, false);
+    }
+    
+    function whitelistMint(uint256 round, uint32 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external payable{
+        require(block.timestamp <= deadline, "timeout");
+        bytes32 hash = keccak256(abi.encodePacked(block.chainid, address(this), "mint", round, msg.sender, deadline));
+        require(ECDSA.recover(hash, v, r, s) == signer, "not signer");
+        _mint(round, amount, true);
     }
 }
