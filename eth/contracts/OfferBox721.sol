@@ -17,7 +17,7 @@ contract Offer721 is Ownable{
     }
     Offer[] public offers;
     address public signer;
-    mapping(address => uint256) public nonces;
+    mapping(address => uint256) public minted;
     event Mint(uint256 indexed round, address indexed account, uint256 amount, uint256 currencyAmount);
     
     constructor(address _signer) {
@@ -70,9 +70,12 @@ contract Offer721 is Ownable{
         _mint(round, amount, false);
     }
     
-    function permitMint(uint256 round, uint8 v, bytes32 r, bytes32 s) external payable{
-        bytes32 hash = keccak256(abi.encodePacked(block.chainid, address(this), "mint", round, msg.sender, nonces[msg.sender]++));
+    function permitMint(uint256 round, uint256 amount, uint256 maxPermit, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external payable{
+        require(block.timestamp <= deadline, "timeout");
+        minted[msg.sender] += amount;
+        require(minted[msg.sender] <= maxPermit, "not enough permit");
+        bytes32 hash = keccak256(abi.encodePacked(block.chainid, address(this), "mint", round, msg.sender, maxPermit, deadline));
         require(ECDSA.recover(hash, v, r, s) == signer, "not signer");
-        _mint(round, 1, true);
+        _mint(round, amount, true);
     }
 }
