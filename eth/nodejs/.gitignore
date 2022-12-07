@@ -1,2 +1,4 @@
 node_modules
 privatekey.txt
+sign_key
+sign_key.js
