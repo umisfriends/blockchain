@@ -2,15 +2,13 @@ const Web3 = require('web3')
 const express = require('express')
 const ethUtil = require('ethereumjs-util')
 const fs = require('fs')
-const config = require('./config')
-console.log(config)
-const key = require('./key')
-console.log(key)
 const mysql = require('mysql')
+const config = require('./config')
+const key = require('./key')
 const app = express()
 
-const mysqlPool = mysql.createPool(config.mysql)
-const mysqlQuery = async(sql,values) => {
+const mysqlPool = mysql.createPool(key.mysql)
+const mysqlQuery = async(sql, values) => {
     return new Promise( resolve =>{
         mysqlPool.getConnection((err,connection)=>{
             if(err) {
@@ -39,13 +37,13 @@ app.all("*",function(req,res,next){
 })
 
 const inwlbadge = async(round, address)=>{
-	const sqlres = await mysqlQuery(`select * from ${config.db_web}wl_badge where address=? and round=?`, [address, round])
+	const sqlres = await mysqlQuery(`select * from ${key.db_web}wl_badge where address=? and round=?`, [address, round])
 	if(sqlres.code < 0) throw sqlres.result
 	return sqlres.result.length > 0
 }
 
 // parameter: round, address
-app.get('/sign_badge', async(req, res)=>{
+app.get('/mint1155_sign', async(req, res)=>{
 	try{
 		const round = Number(req.query.round)
 		const address = req.query.address
@@ -64,7 +62,7 @@ app.get('/sign_badge', async(req, res)=>{
 })
 
 // parameter: round, address
-app.get('/wl_badge', async(req, res)=>{
+app.get('/mint1155_inwhitelist', async(req, res)=>{
 	try{
 		const round = Number(req.query.round)
 		const address = req.query.address
