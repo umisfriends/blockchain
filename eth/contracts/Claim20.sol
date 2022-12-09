@@ -9,7 +9,7 @@ interface I20{
 contract Claim721 is Ownable{
     address public signer;
     mapping(address => uint256) public nonces;
-    event Claimed(address indexed to, uint256 indexed nonce, address token, uint256 amount);
+    event Claimed(address indexed to, uint256 indexed nonce, address indexed token, uint256 amount);
     
     constructor(address _signer){
         signer = _signer;
