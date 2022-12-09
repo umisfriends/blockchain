@@ -78,7 +78,7 @@ app.get('/mint1155_inwhitelist', async(req, res)=>{
 
 let storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, config.dirImage);
+    cb(null, config.uploadDir);
   },
   filename: (req, file, cb) => {
     let extName = path.extname(file.originalname);

@@ -1,4 +1,5 @@
 const config = {
+	uploadDir:'./upload'
 	chainid:5,
 	addr_offerbadge:"0x289ea269E9F84e231Bc08C40D026D96A89CFf324",
 	addr_offerbox:"0xa8FC9074D8D6C4dcFe822Ee7a5Be28bC7d5d3C8b",
