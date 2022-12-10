@@ -148,7 +148,7 @@ app.post("/upload", upload.single("logo"), async (req, res) => {
 			sql += ',status=?'
 			values.push(1)
 			if(!Web3.utils.isAddress(sqlres.result[0].inviter) && Web3.utils.isAddress(inviter)){
-				sql += ',inviter'
+				sql += ',inviter=?'
 				values.push(inviter)
 			}
 		}
