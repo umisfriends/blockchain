@@ -204,6 +204,17 @@ app.get('/team_audit', async(req, res)=>{
   	}
 })
 
+app.get('/teamlist', async(req, res)=>{
+	try{
+		var sqlres = await mysqlQuery("select * from team where status=3", [req.query.leader])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true,result:sqlres.result})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
 // header: x-token
 // param: status
 app.post('/team', async(req, res)=>{
