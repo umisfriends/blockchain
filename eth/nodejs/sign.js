@@ -191,7 +191,7 @@ app.get('/team_audit', async(req, res)=>{
 				if(sqlres.code < 0){
 					console.error(sqlres.result)
 				}else{
-					sqlres = await mysqlQuery(`update user set rewardUsdt += (select amount*${config.percent_jointeam_invite_getusdt}/100 from jointeam_transfer where hash=?) where id=?`,
+					sqlres = await mysqlQuery(`update user set rewardUsdt=rewardUsdt+(select amount*${config.percent_jointeam_invite_getusdt}/100 from jointeam_transfer where hash=?) where id=?`,
 						[data.hash, data.uid])
 					if(sqlres.code < 0) console.error(sqlres.result)
 				}
@@ -223,6 +223,63 @@ app.post('/user', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
 		res.send({success:true,result:user})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
+// header: x-token
+// param: team(address)
+app.post('/team_join', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var team = req.query.team
+		if(user.team_status == 1) throw new Error("already join team")
+		var sqlres = await mysqlQuery("update user set team=?,status=1 where id=?", [team,user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true,result:{id:user.id, team}})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
+// header: x-token
+// param: team(address)
+app.post('/team_join', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var team = req.query.team
+		if(user.team_status == 1) throw new Error("already join team")
+		var sqlres = await mysqlQuery("update user set team=?,status=1 where id=?", [team,user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true,result:{id:user.id, team}})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
+// header: x-token
+// param: uid
+app.post('/team_handlejoin', async(req, res)=>{
+	try{
+		var uid = req.query.uid
+		var leader = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select * from team where uid=?", [leader.id])
+		if(sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length == 0) throw new Error("team not exist")
+		var team = sqlres.result[0]
+		sqlres = await mysqlQuery("select * from user where id=?", [uid])
+		if(sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length == 0) throw new Error("uid not exist")
+		var user = sqlres.result[0]
+		if(user.team_status == 1) throw new Error("user already join")
+		if(user.team != team.leader) throw new Error("user not join this team")
+		var sqlres = await mysqlQuery("update user set team_status=1 where id=?", [uid])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true,result:{id:uid, team:team.leader}})
 	} catch (e) {
     	console.error(e);
     	res.send({ success: false, result: e.toString() });
