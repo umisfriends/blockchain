@@ -1,4 +1,5 @@
 const config = {
+	apihost:'http://43.242.200.162:9000',
 	uploadDir:'./upload',
 	chainid:5,
 	addr_offerbadge:"0x289ea269E9F84e231Bc08C40D026D96A89CFf324".toLowerCase(),
@@ -19,5 +20,6 @@ const config = {
 	percent_mintbox_team_getusdt:50,
 	percent_mintbox_invite_getusdt:10,
 	timeout_sign:300,
+	tgEnable:false,
 }
 module.exports = config

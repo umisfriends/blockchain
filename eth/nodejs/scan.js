@@ -3,10 +3,11 @@ const BigNumber = require('bignumber.js')
 const Telegraf = require('telegraf')
 const mysql = require('mysql')
 const config = require('./config')
+const jwt = require('jsonwebtoken')
 const key = require('./key')
 
 const step = 99
-const topic_transfer = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', //Transfer(address_,address_,uint256)
+const topic_transfer = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' //Transfer(address_,address_,uint256)
 const topics = [[
 	topic_transfer,
 ]]
@@ -43,15 +44,19 @@ const toAmount=(a,decimal)=>{
 
 const tgMessage = async(msg) => {
   try {
-    const tg = new Telegraf.Telegram(key.tgToken);
-    await tg.sendMessage(key.tgChannel, msg);
+    if(config.tgEnable){
+    	const tg = new Telegraf.Telegram(key.tgToken)
+    	await tg.sendMessage(key.tgChannel, msg)
+	}else{
+		console.log(msg)
+	}
   } catch (error) {
-    console.error({ error, msg }, 'send telegram message error');
+    console.error({ error, msg }, 'send telegram message error')
   }
 }
 
 const jointeamTransfer = async(from, amount, hash)=>{
-	var sqlres = await mysqlQuery("select * from jointeamTransfer where hash=?", [hash])
+	var sqlres = await mysqlQuery("select * from jointeam_transfer where hash=?", [hash])
 	if(sqlres.code < 0) throw sqlres.result
 	if(sqlres.result.length > 0) return
 	var damount = toAmount(amount, config.decimals_usdt)
@@ -60,9 +65,9 @@ const jointeamTransfer = async(from, amount, hash)=>{
 	if(sqlres.code < 0) throw sqlres.result
 	var msg = `address_jointeam receive usdt ${damount}\nfrom:${from}\ntxHash:${hash}\n---------------\n`
 	var update = 0
-	if(amount.eq(config.amount_jointeam_payusdt)){
+	if(!amount.eq(config.amount_jointeam_payusdt)){
 		msg += '[error]:amount not match\n'
-	}else(sqlres.result.length == 0){
+	}else if(sqlres.result.length == 0){
 		msg += '[error]:team not registed\n'
 	}else{
 		var team = sqlres.result[0]
@@ -75,15 +80,18 @@ const jointeamTransfer = async(from, amount, hash)=>{
 		msg += `status:${statuslist[status]}\n`
 		if(status == 0 || status == 1){
 			msg += status == 0 ? '[warning]:message not upload\n' : ''
-			msg += '[register]:success or fail\n'
+			var token_fail = jwt.sign({uid:team.uid,hash,audit:false}, key.jwtkey, {expiresIn:7*24*3600})
+			var token_success = jwt.sign({uid:team.uid,hash,audit:true}, key.jwtkey, {expiresIn:7*24*3600})
+			msg += `[audit success]: ${config.apihost}/team_audit?audit_result=true&token=${token_success}\n`
+			msg += `[audit fail]: ${config.apihost}/team_audit?audit_result=false&token=${token_fail}\n`
 			update = 1
-			sqlres = await mysqlQuery("update team set payhash=? and status=2 where leader=?", [hash, from])
+			sqlres = await mysqlQuery("update team set payhash=?,status=2 where leader=?", [hash, from])
 			if(sqlres.code < 0) throw sqlres.result
 		}else{
 			msg += '[error]:duplicate pay\n'
 		}
 	}
-	sqlres = await mysqlQuery("insert jointeamTransfer(hash,from,amount,status,createTime) values(?,?,?,?,now())",
+	sqlres = await mysqlQuery("insert jointeam_transfer(hash,`from`,amount,status,createTime) values(?,?,?,?,now())",
 		[hash, from, damount, update])
 	if(sqlres.code < 0) throw sqlres.result
 	await tgMessage(msg)
@@ -93,23 +101,24 @@ const scanBlock = async()=>{
 	try{
 		var web3 = new Web3(key.rpc)
 		var curBlock = await web3.eth.getBlockNumber()
-		var sqlres = await mysqlQuery('select * from scan where name=block', [])
+		var sqlres = await mysqlQuery('select * from scan where name=?', ['block'])
 		if(sqlres.code < 0) throw sqlres.result
 		var fromBlock = Number(sqlres.result[0].scaned)+1
 		var toBlock = fromBlock + step
 		if(toBlock > curBlock) toBlock = Number(curBlock)
 		console.log(fromBlock, '=>', toBlock)
-		var logs = web3.eth.getPastLogs({fromBlock, toBlock, address, topics})
+		var logs = await web3.eth.getPastLogs({fromBlock, toBlock, address, topics})
 		console.log('logs',logs.length)
 		for(var i = 0; i < logs.length; i++){
 			var log = logs[i]
-			if(log.address == config.addr_usdt && logs.topics.length == 3 && logs.data.length == 66 && logs.topics[0] == topic_transfer){
-				if(toAddress(logs.topics[2]) == config.addr_jointeam){
-					await jointeamTransfer(toAddress(logs.topics[1]), new BigNumber(log.data), logs.transactionHash)
+			if(log.address.toLowerCase() == config.addr_usdt && log.topics.length == 3 && log.data.length == 66 && log.topics[0] == topic_transfer){
+				if(toAddress(log.topics[2]) == config.addr_jointeam){
+					await jointeamTransfer(toAddress(log.topics[1]), new BigNumber(log.data), log.transactionHash)
 				}
 			}
 		}
-		await mysqlQuery("update scan set scaned=? where name=block",[toBlock])
+		sqlres = await mysqlQuery("update scan set scaned=? where name=?",[toBlock, 'block'])
+		if(sqlres.code < 0) throw sqlres.result
 	}catch(e){
 		console.error(e)
 	}finally{

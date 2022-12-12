@@ -139,8 +139,8 @@ app.post("/upload", upload.single("logo"), async (req, res) => {
     var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
     if(sqlres.code < 0) throw sqlres.result
     if(sqlres.result.length == 0){
-    	sqlres = await mysqlQuery(`insert into team(leader,name,logo,description,email,inviter,status) values(?,?,?,?,?,?,?)`,
-    		[user.address, name, logo, description, email, inviter, 1])
+    	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,status,createTime) values(?,?,?,?,?,?,?,?,now())`,
+    		[user.address, user.id, name, logo, description, email, inviter, 1])
 	}else{
 		var sql = 'update team set name=?,logo=?,description=?,email=?'
 		var values = [name, logo, description, email]
@@ -163,6 +163,70 @@ app.post("/upload", upload.single("logo"), async (req, res) => {
     console.error(e);
     res.send({ success: false, result: e.toString() });
   }
+})
+
+// param: token
+app.get('/team_audit', async(req, res)=>{
+	try{
+		var data = await verifyToken(req.query.token)
+		if(data.uid == undefined || data.hash == undefined || data.audit == undefined) throw new Error('invalid param')
+		if(!data.audit){
+			var sqlres = await mysqlQuery("update jointeam_transfer set status=2 where hash=?", [data.hash])
+			if(sqlres.code < 0) throw sqlres.result
+		}else{
+			var sqlres = await mysqlQuery("select * from team where uid=?", [data.uid])
+			if(sqlres.code < 0) throw sqlres.result
+			if(sqlres.result.length == 0 || sqlres.result[0].status < 2) throw new Error("not upload message or pay")
+			if(sqlres.result[0].status > 2) throw new Error("team is created")
+			var team = sqlres.result[0]
+			sqlres = await mysqlQuery("update team set status=3 where uid=?", [data.uid])
+			if(sqlres.code < 0) throw sqlres.result
+			sqlres = await mysqlQuery("update jointeam_transfer set status=1 where hash=?", [data.hash])
+			if(sqlres.code < 0) console.error(sqlres.result)
+			sqlres = await mysqlQuery(`update user set rewardBox=rewardBox+${config.amount_jointeam_getbox},rewardBadge=rewardBadge+${config.amount_jointeam_getblage},team=?,team_status=1 where id=?`,
+				[team.leader,data.uid])
+			if(sqlres.code < 0) console.error(sqlres.result)
+			if(Web3.utils.isAddress(team.invier)){
+				sqlres = await mysqlQuery("select * from user where id=?", [data.id])
+				if(sqlres.code < 0){
+					console.error(sqlres.result)
+				}else{
+					sqlres = await mysqlQuery(`update user set rewardUsdt += (select amount*${config.percent_jointeam_invite_getusdt}/100 from jointeam_transfer where hash=?) where id=?`,
+						[data.hash, data.uid])
+					if(sqlres.code < 0) console.error(sqlres.result)
+				}
+			}
+		}
+		res.send({success:true,result:data})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
+// header: x-token
+// param: status
+app.post('/team', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select * from team where uid=? and status=?", [user.id, req.query.status])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true,result:sqlres.result})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
+// header: x-token
+app.post('/user', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		res.send({success:true,result:user})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
 })
 
 app.listen('9000', ()=>{
