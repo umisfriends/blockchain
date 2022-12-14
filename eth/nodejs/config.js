@@ -4,7 +4,12 @@ const config = {
 	chainid:5,
 	addr_offerbadge:"0x289ea269E9F84e231Bc08C40D026D96A89CFf324".toLowerCase(),
 	addr_offerbox:"0xa8FC9074D8D6C4dcFe822Ee7a5Be28bC7d5d3C8b".toLowerCase(),
+	addr_box721:"",toLowerCase(),
+	addr_badge:"",toLowerCase(),
 	addr_usdt:"0x4B8b2D7e8EB66D41B73ac2fD7E06D26E923d8230".toLowerCase(),
+	addr_claim721:"",toLowerCase(),
+	addr_claim1155:"",toLowerCase(),
+	addr_claim20:"",toLowerCase(),
 	decimals_usdt:1e6,
 	addr_jointeam:"0x1a0127425B582850163d88a01E95Bdccd585a1E4".toLowerCase(),
 	amount_jointeam_payusdt:"10000000000",
@@ -21,5 +26,7 @@ const config = {
 	percent_mintbox_invite_getusdt:10,
 	timeout_sign:300,
 	tgEnable:false,
+	sign_prefix:"I am signing my one-time nonce:",
+
 }
 module.exports = config

@@ -297,6 +297,90 @@ app.post('/team_handlejoin', async(req, res)=>{
   	}
 })
 
+// herder: x-token
+// param: amount
+app.get('/claimBox_sign', async(req, res)=>{
+	try{
+		var amount = Number(req.query.amount)
+		var user = await getUser(req.headers['x-token'])
+		if(amount < 0 || amount > Number(user.rewardBox)) throw new Error("invalid amount")
+		if(!Web3.isAddress(user.address)) throw new Error("wallet address not set")
+		const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
+		const data = Web3.utils.encodePacked(config.chainid, config.addr_claim721, "claim", user.address, config.addr_box721, amount, user.claimNonce721, deadline)
+		const hash = Web3.utils.sha3(data)
+		const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {contract:config.addr_claim721, to:user.address, token:addr_box721, amount, 
+			nonce, deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true,result})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
+// herder: x-token
+// param: amount
+app.get('/claimBadge_sign', async(req, res)=>{
+	try{
+		var amount = Number(req.query.amount)
+		var user = await getUser(req.headers['x-token'])
+		if(amount < 0 || amount > Number(user.rewardBadge)) throw new Error("invalid amount")
+		if(!Web3.isAddress(user.address)) throw new Error("wallet address not set")
+		const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
+		const data = Web3.utils.encodePacked(config.chainid, config.addr_claim1155, "claim", user.address, config.addr_badge, 0, amount, user.claimNonce1155, deadline)
+		const hash = Web3.utils.sha3(data)
+		const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {contract:config.addr_claim1155, to:user.address, token:addr_badge, id:0, amount, 
+			nonce:user.claimNonce1155, deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true,result})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
+// herder: x-token
+// param: amount
+app.get('/claimUsdt_sign', async(req, res)=>{
+	try{
+		var amount = Number(req.query.amount)
+		var user = await getUser(req.headers['x-token'])
+		if(amount < 0 || amount > Number(user.rewardUSDT)) throw new Error("invalid amount")
+		if(!Web3.isAddress(user.address)) throw new Error("wallet address not set")
+		const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
+		const data = Web3.utils.encodePacked(config.chainid, config.addr_claim20, "claim", user.address, config.addr_usdt, amount, user.claimNonce20, deadline)
+		const hash = Web3.utils.sha3(data)
+		const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {contract:config.addr_claim20, to:user.address, token:addr_usdt, amount, 
+			nonce:user.claimNonce20, deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true,result})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
+// herder: x-token
+// param: amount
+app.get('/mintbox721_sign', async(req, res)=>{
+	try{
+		var amount = Number(req.query.amount)
+		var user = await getUser(req.headers['x-token'])
+		if(amount < 0 || amount > Number(user.rewardUSDT)) throw new Error("invalid amount")
+		if(!Web3.isAddress(user.address)) throw new Error("wallet address not set")
+		const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
+		const data = Web3.utils.encodePacked(config.chainid, config.addr_claim20, "claim", user.address, config.addr_usdt, amount, user.claimNonce20, deadline)
+		const hash = Web3.utils.sha3(data)
+		const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {contract:config.addr_claim20, to:user.address, token:addr_usdt, amount, 
+			nonce:user.claimNonce20, deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true,result})
+	} catch (e) {
+    	console.error(e);
+    	res.send({ success: false, result: e.toString() });
+  	}
+})
+
 app.listen('9000', ()=>{
 	console.log('listen:9000')
 })

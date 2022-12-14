@@ -11,26 +11,33 @@ interface I1155{
     function mint(address to, uint256 id, uint256 amount, bytes memory data) external;
 }
 
-contract TeamRegistry is Ownable{
+contract Registry is Ownable{
     struct Info{
-        IERC20 costToken;
+        address costToken;
         uint256 costAmount;
-        I721 box;
+        address box;
         uint32 boxAmount;
-        I1155 blade;
-        uint32 bladeId;
-        uint32 bladeAmount;
+        address badge;
+        uint32 badgeId;
+        uint32 badgeAmount;
     }
     address public signer;
     Info public info;
+    address public feeTo;
     event Register(address indexed team, address token, uint256 cost);
     
-    constructor(address _signer){
+    constructor(address _signer, address _feeTo, Info memory _info){
         signer = _signer;
+        feeTo = _feeTo;
+        info = _info;
     }
     
     function setSigner(address _signer) external onlyOwner{
         signer = _signer;
+    }
+    
+    function setFeeTo(address _feeTo) external onlyOwner{
+        feeTo = _feeTo;
     }
     
     function setInfo(Info calldata _info) external onlyOwner{
@@ -42,10 +49,10 @@ contract TeamRegistry is Ownable{
         bytes32 hash = keccak256(abi.encodePacked(block.chainid, address(this), "register", msg.sender, deadline));
         require(ECDSA.recover(hash, v, r, s) == signer, "sign error");
         Info memory i = info; 
-        i.costToken.transferFrom(msg.sender, address(this), i.costAmount);
-        i.box.mint(msg.sender, i.boxAmount);
-        i.blade.mint(msg.sender, i.bladeId, i.bladeAmount, "");
-        emit Register(msg.sender, address(i.costToken), i.costAmount);
+        IERC20(i.costToken).transferFrom(msg.sender, feeTo == address(0) ? address(this) : feeTo, i.costAmount);
+        I721(i.box).mint(msg.sender, i.boxAmount);
+        I1155(i.badge).mint(msg.sender, i.badgeId, i.badgeAmount, "");
+        emit Register(msg.sender, i.costToken, i.costAmount);
     }
     
     function claim(IERC20 token, address to, uint256 amount) external onlyOwner{

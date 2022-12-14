@@ -17,11 +17,13 @@ contract Offer721 is Ownable{
     }
     Offer[] public offers;
     address public signer;
+    address public feeTo;
     mapping(address => uint256) public minted;
     event Mint(uint256 indexed round, address indexed account, uint256 amount, uint256 currencyAmount);
     
-    constructor(address _signer) {
+    constructor(address _signer, address _feeTo) {
         signer = _signer;
+        feeTo = _feeTo;
     }
     
     function offerLength() external view returns(uint256){
@@ -45,6 +47,10 @@ contract Offer721 is Ownable{
         signer = _signer;
     }
     
+    function setFeeTo(address _feeTo) external onlyOwner{
+        feeTo = _feeTo;
+    }
+    
     function claim(address currency, address to, uint256 amount) external onlyOwner{
         if(currency == address(0)){
             payable(to).transfer(amount);
@@ -59,8 +65,9 @@ contract Offer721 is Ownable{
         uint256 currencyAmount = whitelist ? amount * offer.price1 : amount * offer.price2;
         if(offer.currency == address(0)){
             require(msg.value == currencyAmount, "invalid value");
+            if(feeTo != address(0)) payable(feeTo).transfer(currencyAmount);
         }else if(currencyAmount > 0){
-            IERC20(offer.currency).transferFrom(msg.sender, address(this), currencyAmount);
+            IERC20(offer.currency).transferFrom(msg.sender, feeTo == address(0) ? address(this) : feeTo, currencyAmount);
         }
         I721(offer.nft).mint(msg.sender, amount);
         emit Mint(round, msg.sender, amount, currencyAmount);
