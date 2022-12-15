@@ -1,18 +1,17 @@
 const Web3 = require('web3')
 const BigNumber = require('bignumber.js')
-const Telegraf = require('telegraf')
 const mysql = require('mysql')
 const config = require('./config')
 const jwt = require('jsonwebtoken')
 const key = require('./key')
 
 const step = 99
-const topic_transfer = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' //Transfer(address_,address_,uint256)
+const topic_registry = '0xcc0bec1447060c88cdc5a739cf29cfa26c453574dd3f5b9e4dcc317d6401cb1c' //Register(address,address,uint256)
 const topics = [[
-	topic_transfer,
+	topic_registry,
 ]]
 const address = [
-	config.addr_usdt,
+	config.addr_registry,
 ]
 
 const mysqlPool = mysql.createPool(key.mysql)
@@ -34,67 +33,8 @@ const mysqlQuery = async(sql, values) => {
     })
 }
 
-const toAddress=(a)=>{
-	return '0x'+a.substr(26)
-}
-
-const toAmount=(a,decimal)=>{
-	return a.div(decimal).toFixed(2)
-}
-
-const tgMessage = async(msg) => {
-  try {
-    if(config.tgEnable){
-    	const tg = new Telegraf.Telegram(key.tgToken)
-    	await tg.sendMessage(key.tgChannel, msg)
-	}else{
-		console.log(msg)
-	}
-  } catch (error) {
-    console.error({ error, msg }, 'send telegram message error')
-  }
-}
-
-const jointeamTransfer = async(from, amount, hash)=>{
-	var sqlres = await mysqlQuery("select * from jointeam_transfer where hash=?", [hash])
-	if(sqlres.code < 0) throw sqlres.result
-	if(sqlres.result.length > 0) return
-	var damount = toAmount(amount, config.decimals_usdt)
-	if(sqlres.code < 0) throw sqlres.result
-	sqlres = await mysqlQuery("select * from team where leader=?", [from])
-	if(sqlres.code < 0) throw sqlres.result
-	var msg = `address_jointeam receive usdt ${damount}\nfrom:${from}\ntxHash:${hash}\n---------------\n`
-	var update = 0
-	if(!amount.eq(config.amount_jointeam_payusdt)){
-		msg += '[error]:amount not match\n'
-	}else if(sqlres.result.length == 0){
-		msg += '[error]:team not registed\n'
-	}else{
-		var team = sqlres.result[0]
-		var statuslist = ['未知','已提交资料','已付款','审核通过','审核失败']
-		var status = Number(team.status)
-		msg += `name:${team.name}\n`
-		msg += `description:${team.description}\n`
-		msg += `email:${team.email}\n`
-		msg += `inviter:${team.inviter}\n`
-		msg += `status:${statuslist[status]}\n`
-		if(status == 0 || status == 1){
-			msg += status == 0 ? '[warning]:message not upload\n' : ''
-			var token_fail = jwt.sign({uid:team.uid,hash,audit:false}, key.jwtkey, {expiresIn:7*24*3600})
-			var token_success = jwt.sign({uid:team.uid,hash,audit:true}, key.jwtkey, {expiresIn:7*24*3600})
-			msg += `[audit success]: ${config.apihost}/team_audit?audit_result=true&token=${token_success}\n`
-			msg += `[audit fail]: ${config.apihost}/team_audit?audit_result=false&token=${token_fail}\n`
-			update = 1
-			sqlres = await mysqlQuery("update team set payhash=?,status=2 where leader=?", [hash, from])
-			if(sqlres.code < 0) throw sqlres.result
-		}else{
-			msg += '[error]:duplicate pay\n'
-		}
-	}
-	sqlres = await mysqlQuery("insert jointeam_transfer(hash,`from`,amount,status,createTime) values(?,?,?,?,now())",
-		[hash, from, damount, update])
-	if(sqlres.code < 0) throw sqlres.result
-	await tgMessage(msg)
+const uAmount = (a)=>{
+	return a.div(config.decimals_usdt).toFixed(2)
 }
 
 const scanBlock = async()=>{
@@ -111,9 +51,25 @@ const scanBlock = async()=>{
 		console.log('logs',logs.length)
 		for(var i = 0; i < logs.length; i++){
 			var log = logs[i]
-			if(log.address.toLowerCase() == config.addr_usdt && log.topics.length == 3 && log.data.length == 66 && log.topics[0] == topic_transfer){
-				if(toAddress(log.topics[2]) == config.addr_jointeam){
-					await jointeamTransfer(toAddress(log.topics[1]), new BigNumber(log.data), log.transactionHash)
+			if(log.address.toLowerCase() == config.addr_registry && log.topics.length == 2 && log.data.length == 130 && log.topics[0] == topic_register){
+				var team = '0x'+log.topics[1].substr(2)
+				var token = '0x'+log.data.substr(26,40)
+				var amount = new BigNumber('0x'+log.data.substr(66))
+				var hash = log.transactionHash
+				sqlres = await mysqlQuery("select * from registry where hash=?", [hash])
+				if(sqlres.code < 0) throw sqlres.result
+				if(sqlres.result.length == 0){
+					sqlres = await mysqlQuery("insert into registry(hash,team,token,cost) values(?,?,?,?)", [hash, team, token, uAmount(amount)])
+					if(sqlres.code <0) console.error(sqlres.result)
+					sqlres = await mysqlQuery("update team set payhash=? where leader=?", [hash, team])
+					if(sqlres.code <0) console.error(sqlres.result)
+					sqlres = await mysqlQuery("select * from user where address in (select inviter from team where leader=?)", [team])
+					if(sqlres.code == 0 && sqlres.result.length > 0){
+						var id = sqlres.result[0].id
+						var sAmount = uAmount(amount.times(config.percent_team_invite_getusdt).div(100))
+						sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${sAmount} where id=?`, [id])
+						if(sqlres.code < 0) console.error(sqlres.result)
+					}
 				}
 			}
 		}

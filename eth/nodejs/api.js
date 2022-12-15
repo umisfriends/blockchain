@@ -10,6 +10,7 @@ const BigNumber = require('bignumber.js')
 const config = require('./config')
 const key = require('./key')
 const app = express()
+const abi_box = require('./abi/Box721.json')
 
 if(!fs.existsSync(config.uploadDir)) fs.mkdirSync(config.uploadDir)
 
@@ -122,6 +123,18 @@ const isTeamLeader = async(address)=>{
 	return sqlres.result.length > 0
 }
 
+// param: name
+app.get("/team_name", async()=>{
+	try{
+		var sqlres = await mysqlQuery("select * from team where name=?", [req.query.name])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+  	}catch(e){
+    	console.error(e)
+    	res.send({success:false, result:e.toString()})
+  	}
+})
+
 // param: logo(file/image) name(string) description(string) email(string) inviter(address,option)
 // header: x-token
 app.post("/upload", upload.single("logo"), async (req, res) => {
@@ -134,33 +147,25 @@ app.post("/upload", upload.single("logo"), async (req, res) => {
     var inviter = req.body.inviter == undefined ? null : req.body.inviter
     var isleader = await isTeamLeader(inviter)
     if(!Web3.utils.isAddress(user.address)) throw new Error("invalid user address")
-    if(!isTeamLeader(inviter)) throw new Error("invalid inviter")
+    if(!isleader) throw new Error("invalid inviter")
     var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
     if(sqlres.code < 0) throw sqlres.result
     if(sqlres.result.length == 0){
-    	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,status,createTime) values(?,?,?,?,?,?,?,?,now())`,
-    		[user.address, user.id, name, logo, description, email, inviter, 1])
+    	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,createTime) values(?,?,?,?,?,?,?,now())`,
+    		[user.address, user.id, name, logo, description, email, inviter])
 	}else{
-		var sql = 'update team set name=?,logo=?,description=?,email=?'
-		var values = [name, logo, description, email]
-		if(sqlres.result[0].status <= 1){
-			sql += ',status=?'
-			values.push(1)
-			if(!Web3.utils.isAddress(sqlres.result[0].inviter) && Web3.utils.isAddress(inviter)){
-				sql += ',inviter=?'
-				values.push(inviter)
-			}
-		}
-		values.push(user.address)
-		sqlres = await mysqlQuery(sql + ' where leader=?', values)
+		sqlres = await mysqlQuery('update team set name=?,logo=?,description=?,email=? where leader=?', [name, logo, description, email, user.address])
 	}
-    if (sqlres.code < 0) throw sqlres.result;
-    sqlres = await mysqlQuery('select * from team where leader=?', [user.address])
-    if(sqlres.code < 0) throw sqlres.result
-    res.send({ success: true, result: sqlres.result[0] });
+    if (sqlres.code < 0) throw sqlres.result
+    var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
+    var data = Web3.utils.encodePacked(config.chainid, config.addr_registry, "register", user.address, deadline)
+    const hash = Web3.utils.sha3(data)
+    const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+	const result = {address:user.address,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+    res.send({ success: true, result})
   } catch (e) {
-    console.error(e);
-    res.send({ success: false, result: e.toString() });
+    console.error(e)
+    res.send({ success: false, result: e.toString() })
   }
 })
 
@@ -180,7 +185,8 @@ const ethMsgHash = (msg)=>{
 }
 
 const ethVerify = (hash, v, r, s, address)=>{
-	return address == ethUtil.bufferToHex(ethUtil.publicToAddress(ethUtil.ecrecover(hash, v, r, s)))
+	return address == ethUtil.bufferToHex(ethUtil.publicToAddress(ethUtil.ecrecover(
+		ethUtil.toBuffer(hash), v, ethUtil.toBuffer(r), ethUtil.toBuffer(s))))
 }
 
 // header: x-token
@@ -190,12 +196,34 @@ app.post('/user_setaddress', async(req, res)=>{
 		var user = getUser(req.headers['x-token'])
 		var nonce = Number(req.query.nonce)
 		var address = req.query.address.toLowerCase()
+		if(!Web3.isAddress(address)) throw new Error('invalid address')
+		if(Web3.isAddress(user.address)) throw new Error('already set')
 		var now = Math.ceil(new Date().getTime()/1000)
 		if(nonce < now - config.timeout_sign || nonce > now + config.timeout_sign) throw new Error("invalid nonce")
 		var hash = ethMsgHash(sign_prefix+nonce)
-		var 
-		
-		res.send({success:true, result:user})
+		var addr = ethVerify(hash, v, r, s)
+		if(addr.toLowerCase() != address) throw new Error("sign error")
+		var sqlres = await mysqlQuery("update user set address=? where id=?", [address, user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:'OK'})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+// param: tokenId
+app.post('/bindbox', async(req, res)=>{
+	try{
+		var user = getUser(req.headers['x-token'])
+		var tokenId = Number(req.query.tokenId)
+		if(!Web3.utils.isAddress(user.address)) throw new Error('invalid address')
+		var web3 = new Web3(config.rpc)
+		var contract = new web3.eth.Contract(abi_box, config.addr_box721)
+		var owner = await contract.methods.ownerOf(tokenId)
+		if(owner.toLowerCase() != user.address.toLowerCase()) throw new Error("only tokenId owner")
+		res.send({success:true, result:'OK'})
 	}catch(e){
 		console.error(e)
 		res.send({success:false, result:e.toString()})

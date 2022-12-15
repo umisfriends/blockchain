@@ -24,12 +24,18 @@ contract Registry is Ownable{
     address public signer;
     Info public info;
     address public feeTo;
+    mapping(address => uint256) public regTime;
+    address[] public team;
     event Register(address indexed team, address token, uint256 cost);
     
     constructor(address _signer, address _feeTo, Info memory _info){
         signer = _signer;
         feeTo = _feeTo;
         info = _info;
+    }
+    
+    function teamNumber() external view returns(uint256){
+        return team.length;
     }
     
     function setSigner(address _signer) external onlyOwner{
@@ -46,10 +52,13 @@ contract Registry is Ownable{
     
     function register(uint256 deadline, uint8 v, bytes32 r, bytes32 s) external{
         require(block.timestamp <= deadline, "timeout");
+        require(regTime[msg.sender] == 0, "registered");
         bytes32 hash = keccak256(abi.encodePacked(block.chainid, address(this), "register", msg.sender, deadline));
         require(ECDSA.recover(hash, v, r, s) == signer, "sign error");
         Info memory i = info; 
         IERC20(i.costToken).transferFrom(msg.sender, feeTo == address(0) ? address(this) : feeTo, i.costAmount);
+        regTime[msg.sender] = block.timestamp;
+        team.push(msg.sender);
         I721(i.box).mint(msg.sender, i.boxAmount);
         I1155(i.badge).mint(msg.sender, i.badgeId, i.badgeAmount, "");
         emit Register(msg.sender, i.costToken, i.costAmount);
