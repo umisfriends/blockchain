@@ -223,6 +223,136 @@ app.post('/bindbox', async(req, res)=>{
 		var contract = new web3.eth.Contract(abi_box, config.addr_box721)
 		var owner = await contract.methods.ownerOf(tokenId)
 		if(owner.toLowerCase() != user.address.toLowerCase()) throw new Error("only tokenId owner")
+		var sqlres = await mysqlQuery("select * from bindbox where tokenId=?", [tokenId])
+		if(sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length == 0){
+			sqlres = await mysqlQuery("insert into bindbox(tokenId,times) values(?,0)", [tokenId])
+			if(sqlres.code < 0) throw sqlres.result
+		}
+		sqlres = await mysqlQuery("update user set bindbox=? where id=?", [tokenId, user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:'OK'})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+// param: maxPermit
+app.post('/offerbox_sign', async(req, res)=>{
+	try{
+		var user = getUser(req.headers['x-token'])
+		var minted = Number(req.query.maxPermit)
+		if(!Web3.isAsset(user.address)) throw new Error("invalid address")
+		var rewardUFD = Number(user.rewardUFD)
+		var rewardUFDBox = Number(user.rewardUFDBox)
+		var maxAmount = Math.floor(rewardUFD/config.amount_game_rewardufd)+rewardUFDBox
+		if(maxAmount < maxPermit) throw new Error("not enough ufdbox to mint")
+		if(maxPermit < rewardUFDBox){
+			maxPermit = rewardUFDBox
+		}else if(maxPermit > rewardUFDBox){
+			var newbox = maxPermit - rewardUFDBox
+			var newUFD = newbox*config.amount_game_rewardufd
+			var sqlres = await mysqlQuery(`updaet user set rewardUFD=rewardUFD-${newUFD}, rewardUFDBox=rewardUFDBox+${newbox} where id=?`, [user.id])
+			if(sqlres.code < 0) throw sqlres.result
+		}
+		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
+    	var data = Web3.utils.encodePacked(config.chainid, config.addr_offerbox, "mint", 0, user.address, maxPermit, deadline)
+    	const hash = Web3.utils.sha3(data)
+    	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {round:0,address:user.address,maxPermit,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true, result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+// param: maxPermit
+app.post('/offerbox_sign', async(req, res)=>{
+	try{
+		var user = getUser(req.headers['x-token'])
+		var maxPermit = Number(req.query.maxPermit)
+		if(maxPermit == 0) throw new Error("no ufdbox to mint")
+		if(!Web3.isAsset(user.address)) throw new Error("invalid address")
+		var rewardUFD = Number(user.rewardUFD)
+		var rewardUFDBox = Number(user.rewardUFDBox)
+		var maxAmount = Math.floor(rewardUFD/config.amount_game_rewardufd)+rewardUFDBox
+		if(maxAmount < maxPermit) throw new Error("not enough ufdbox to mint")
+		if(maxPermit < rewardUFDBox){
+			maxPermit = rewardUFDBox
+		}else if(maxPermit > rewardUFDBox){
+			var newbox = maxPermit - rewardUFDBox
+			var newUFD = newbox*config.amount_game_rewardufd
+			var sqlres = await mysqlQuery(`updaet user set rewardUFD=rewardUFD-${newUFD}, rewardUFDBox=rewardUFDBox+${newbox} where id=?`, [user.id])
+			if(sqlres.code < 0) throw sqlres.result
+		}
+		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
+    	var data = Web3.utils.encodePacked(config.chainid, config.addr_offerbox, "mint", 0, user.address, maxPermit, deadline)
+    	const hash = Web3.utils.sha3(data)
+    	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {round:0,address:user.address,maxPermit,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true, result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.post('/claimusdt_sign', async(req, res)=>{
+	try{
+		var user = getUser(req.headers['x-token'])
+		if(!Web3.isAsset(user.address)) throw new Error("invalid address")
+		var maxPermit = new BigNumber(user.rewardUSDT).times(config.decimals_usdt)
+		if(maxPermit.eq(0)) throw new Error("no usdt to claim")
+		maxPermit = maxPermit.toFixed(0)
+		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
+    	var data = Web3.utils.encodePacked(config.chainid, config.addr_claim20, "claim", user.address, config.addr_usdt, maxPermit, deadline)
+    	const hash = Web3.utils.sha3(data)
+    	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {address:user.address,token:config.addr_usdt,maxPermit,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true, result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.post('/claimbadge_sign', async(req, res)=>{
+	try{
+		var user = getUser(req.headers['x-token'])
+		if(!Web3.isAsset(user.address)) throw new Error("invalid address")
+		var maxPermit = Number(user.rewardBadge)
+		if(maxPermit == 0) throw new Error("no usdt to claim")
+		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
+    	var data = Web3.utils.encodePacked(config.chainid, config.addr_claim1155, "claim", user.address, config.addr_badge1155, 0, maxPermit, deadline)
+    	const hash = Web3.utils.sha3(data)
+    	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {address:user.address,token:config.addr_badge1155,id:0,maxPermit,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true, result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+// param: leader
+app.post('/team_join', async(req, res)=>{
+	try{
+		var user = getUser(req.headers['x-token'])
+		var leader = req.query.leader
+		if(user.team != null) throw new Error('already joined')
+		if(!Web3.isAsset(leader)) throw new Error('invalid leader address')
+		var sqlres = await mysqlQuery("select * from team where leader=? and hash is not null", [leader])
+		if(sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length == 0) throw new Error('team not exists')
+		sqlres = await mysqlQuery('update user set team=? where id=?', [leader,user.id])
+		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:'OK'})
 	}catch(e){
 		console.error(e)
