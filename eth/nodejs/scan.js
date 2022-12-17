@@ -8,13 +8,8 @@ const key = require('./key')
 const step = 99
 const topic_registry = '0xcc0bec1447060c88cdc5a739cf29cfa26c453574dd3f5b9e4dcc317d6401cb1c' //Register(address,address,uint256)
 const topic_mintbox = '0x5a3e96f397e68b20a43c25f664b628805b877334dadfcc925c6c1a3ad4340458' //Mint(uint256,address,uint256,uint256)
-const topics = [[
-	topic_registry,
-]]
-const address = [
-	config.addr_registry,
-	config.addr_claim1155,
-]
+const topics = [[topic_registry,topic_mintbox]]
+const address = [config.addr_registry,config.addr_offerbox]
 
 const mysqlPool = mysql.createPool(key.mysql)
 const mysqlQuery = async(sql, values) => {
@@ -74,44 +69,47 @@ const scanBlock = async()=>{
 		for(var i = 0; i < logs.length; i++){
 			var log = logs[i]
 			if(log.address.toLowerCase()==config.addr_registry && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_register){
-				var team = '0x'+log.topics[1].substr(2)
+				var leader = '0x'+log.topics[1].substr(2)
 				var token = '0x'+log.data.substr(26,40)
 				var amount = new BigNumber('0x'+log.data.substr(66))
 				var hash = log.transactionHash
 				sqlres = await mysqlQuery("select * from registry where hash=?", [hash])
 				if(sqlres.code < 0) throw sqlres.result
 				if(sqlres.result.length == 0){
-					sqlres = await mysqlQuery("insert into registry(hash,team,token,cost) values(?,?,?,?)", [hash, team, token, uAmount(amount)])
+					sqlres = await mysqlQuery("insert into registry(hash,team,token,cost) values(?,?,?,?)", [hash, leader, token, uAmount(amount)])
 					if(sqlres.code <0) throw sqlres.result
-					sqlres = await mysqlQuery("update team set payhash=? where leader=?", [hash, team])
-					if(sqlres.code <0) console.error(sqlres.result)
-					sqlres = await mysqlQuery("update user set team=?")
-					sqlres = await mysqlQuery("select * from user where address in (select inviter from team where leader=?)", [team])
-					if(sqlres.code == 0 && sqlres.result.length > 0){
-						var id = sqlres.result[0].id
-						var sAmount = uAmount(amount.times(config.percent_team_invite).div(100))
-						sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${sAmount} where id=?`, [id])
-						if(sqlres.code < 0) console.error(sqlres.result)
+					sqlres = await mysqlQuery("select * from team where leader=?", [leader])
+					if(sqlres.code < 0){
+						console.error(sqlres.result)
+					}else{
+						var team = sqlres.result[0]
+						sqlres = await mysqlQuery("update team set payhash=? where leader=?", [hash, leader])
+						if(sqlres.code <0) console.error(sqlres.result)
+						if(Web3.utils.isAddress(team.inviter)){
+							var sAmount = uAmount(amount.times(config.percent_team_invite).div(100))
+							sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${sAmount} where address=?`, [team.inviter])
+							if(sqlres.code < 0) console.error(sqlres.result)
+						}
 					}
 				}
-			}else if(los.address.toLowerCase()==config.addr_badge1155 && log.topics.length==3 && log.data.length==130 && log.topics[0]==topic_mintbox){
+			}else if(los.address.toLowerCase()==config.addr_offerbox && log.topics.length==3 && log.data.length==130 && log.topics[0]==topic_mintbox){
 				var round = new BigNumber(topics[1]).toFixed(0)
 				var to = '0x'+log.topics[2].substr(26)
-				var boxAmount = new BigNumber(log.data.substr(0, 66))
-				var costAmount = new BigNumber(log.data.substr(66))
+				var boxAmount = new BigNumber(log.data.substr(0, 66)).toFixed(0)
+				var costAmount = new BigNumber('0x'+log.data.substr(66))
 				var hash = log.transactionHash
 				sqlres = await mysqlQuery("select * from mintbox where hash=?", [hash])
 				if(sqlres.code < 0) throw sqlres.result
 				if(sqlres.result.length == 0){
 					sqlres = await mysqlQuery("insert into mintbox set(hash,round,account,boxAmount,costAmount) values(?,?,?,?,?)",
-						[hash,round,boxAmount.toFixed(0),uAmount(costAmount)])
+						[hash,round,boxAmount,uAmount(costAmount)])
 					if(sqlres.code < 0) throw sqlres.result
 					sqlres = await mysqlQuery("select * from user where address=?", [to])
 					if(sqlres.code < 0){
 						console.error(sqlres.result)
 					}else if(sqlres.result.length > 0){
 						var user = sqlres.result[0]
-						if(!Web3.isAddress(user.team)){
+						if(Web3.utils.isAddress(user.team)){
 							sqlres = await mysqlQuery("select * from user where address=?", [user.team])
 							if(sqlres.code < 0){
 								console.error(sqlres.result)
@@ -125,24 +123,36 @@ const scanBlock = async()=>{
 									console.error(sqlres.result)
 								}else if(sqlres.result.length > 0){
 									var team = sqlres.result[0]
-									sqlres = await mysqlQuery("select * from user where address=?", [team.inviter])
-									if(sqlres.code < 0){
-										console.error(sqlres.result)
-									}else if(sqlres.result.length > 0){
-										var teaminviter = sqlres.result[0]
-										var inviteAmount = uAmount(costAmount.times(config.percent_box_team_inviter).div(100))
-										sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${inviteAmount} where id=?`, [teaminviter.id])
-										if(sqlres.code < 0) console.error(sqlres.result)
+									if(Web3.utils.isAddress(team.inviter)){
+										sqlres = await mysqlQuery("select * from user where address=?", [team.inviter])
+										if(sqlres.code < 0){
+											console.error(sqlres.result)
+										}else if(sqlres.result.length > 0){
+											var teaminviter = sqlres.result[0]
+											var inviteAmount = uAmount(costAmount.times(config.percent_box_team_inviter).div(100))
+											sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${inviteAmount} where id=?`, [teaminviter.id])
+											if(sqlres.code < 0) console.error(sqlres.result)
+										}
 									}
 								}
 							}
 						}
-						if(!Web3.isAddress(user.p_address)){
+						if(Web3.utils.isAddress(user.p_address)){
 							sqlres = await mysqlQuery("select * from user where address=?", [user.p_address])
 							if(sqlres.code < 0){
 								console.error(sqlres.result)
 							}else if(sqlres.result.length > 0){
-								console.error('to do mintbot get blage')
+								var inviter = sqlres.result[0]
+								var inviteUsers = inviter.inviteUsers == null ? [] : JSON.parse(inviter.inviteUsers)
+								if(inviteUsers.indexOf(to) < 0){
+									inviteUsers.push(to)
+									sqlres = await mysqlQuery("update user set inviteUsers=? where id=?", [JSON.stringify(inviteUsers), inviter.id])
+									if(sqlres.code < 0) console.error(sqlres.result)
+									if(inviteUsers.length % times_box_inviteuser == 0){
+										sqlres = await mysqlQuery(`update user set rewardBadge=rewardBadge+${amount_box_invite_getblade} where id=`, [inviter.id])
+										if(sqlres.code < 0) console.error(sqlres.result)
+									}
+								}
 							}
 						}
 					}
@@ -169,19 +179,22 @@ const scanGame = async()=>{
 		if(sqlres.result.length == 0) throw new Error("no game log")
 		var toTime = sqlres.result[0].updateTime
 		if(fromTime < toTime){
-			sqlres = await mysqlQuery2("select * from tbl_user_level_details where result>=2 and updated_at>? and updated_at<=?", [fromTime, toTime])
+			sqlres = await mysqlQuery2("select uid,count(*) as count,max(updated_at) as updated_at from tbl_user_level_details where result=1 and updated_at>? and updated_at<=? group by uid", [fromTime, toTime])
 			if(sqlres.code <0) throw sqlres.result
 			var logs = sqlres.result
-			for(var log of logs){
+			for(var i = 0; i < logs.length; i++){
+				var log = logs[i]
+				if(Number(log.count) < 2) continue
 				try{
 					sqlres = await mysqlQuery("select * from user where id=?", log.uid)
 					if(sqlres.code < 0) throw sqlres.result
 					if(sqlres.result.length == 0) throw new Error("game uid not found in web")
 					var user = sqlres.result[0]
-					var updteDay = new Date(log.updated_at).getTime()/1000
-					if(!Web3.isAddress(user.address) && user.bindbox != null && Math.floor(user.ufdUpdateTime/86400) < Math.floor(updteDay/86400)){
+					var updteDay = Math.floor(new Date(log.updated_at).getTime()/1000)
+					if(Web3.utils.isAddress(user.address) && user.bindbox != null && Math.floor(user.ufdUpdateTime/86400) < Math.floor(updteDay/86400)){
 						sqlres = await mysqlQuery("select * from bindbox where tokenId=?", [user.bindbox])
 						if(sqlres.code < 0) throw sqlres.result
+						if(sqlres.result.length == 0) throw new Error("no bindbox of this tokenId")
 						if(sqlres.result[0].times < config.times_game_rewardufd){
 							var web3 = new Web3(config.rpc)
 							var contract = new web3.eth.Contract(abi_box, config.addr_box721)
@@ -189,7 +202,7 @@ const scanGame = async()=>{
 							if(owner.toLowerCase() == user.address.toLowerCase()){
 								sqlres = await mysqlQuery("update tokenId set times=times+1 where tokenId=?", user.bindbox)
 								if(sqlres.code < 0) console.error(sqlres.result)
-								sqlres = await mysqlQuery(`update user set ufdUpdateTime=?,rewardUFDBox=rewardUFDBox+${config.amount_game_rewardufd} where id=?`, [updteDay, user.id])
+								sqlres = await mysqlQuery(`update user set ufdUpdateTime=?,rewardUFD=rewardUFD+${config.amount_game_rewardufd} where id=?`, [updteDay, user.id])
 								if(sqlres.code < 0) console.error(sqlres.result)
 							}
 						}

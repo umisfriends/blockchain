@@ -117,7 +117,7 @@ const getUser = async(token) =>{
 }
 
 const isTeamLeader = async(address)=>{
-	if(address == null || address == '' || address == undefined) return true
+	if(address == null) return true
 	var sqlres = await mysqlQuery("select * from team where leader=?", [address])
 	if(sqlres.code < 0) throw sqlres.result
 	return sqlres.result.length > 0
@@ -196,10 +196,10 @@ app.post('/user_setaddress', async(req, res)=>{
 		var user = getUser(req.headers['x-token'])
 		var nonce = Number(req.query.nonce)
 		var address = req.query.address.toLowerCase()
-		if(!Web3.isAddress(address)) throw new Error('invalid address')
-		if(Web3.isAddress(user.address)) throw new Error('already set')
+		if(!Web3.utils.isAddress(address)) throw new Error('invalid address')
+		if(Web3.utils.isAddress(user.address)) throw new Error('already set')
 		var now = Math.ceil(new Date().getTime()/1000)
-		if(nonce < now - config.timeout_sign || nonce > now + config.timeout_sign) throw new Error("invalid nonce")
+		if(nonce < (now - config.timeout_sign) || nonce > (now + config.timeout_sign)) throw new Error("invalid nonce")
 		var hash = ethMsgHash(sign_prefix+nonce)
 		var addr = ethVerify(hash, v, r, s)
 		if(addr.toLowerCase() != address) throw new Error("sign error")
@@ -218,7 +218,7 @@ app.post('/bindbox', async(req, res)=>{
 	try{
 		var user = getUser(req.headers['x-token'])
 		var tokenId = Number(req.query.tokenId)
-		if(!Web3.utils.isAddress(user.address)) throw new Error('invalid address')
+		if(Web3.utils.isAddress(user.address)) throw new Error('invalid address')
 		var web3 = new Web3(config.rpc)
 		var contract = new web3.eth.Contract(abi_box, config.addr_box721)
 		var owner = await contract.methods.ownerOf(tokenId)
@@ -244,48 +244,16 @@ app.post('/offerbox_sign', async(req, res)=>{
 	try{
 		var user = getUser(req.headers['x-token'])
 		var minted = Number(req.query.maxPermit)
-		if(!Web3.isAsset(user.address)) throw new Error("invalid address")
+		if(!Web3.utils.isAddress(user.address)) throw new Error("invalid address")
 		var rewardUFD = Number(user.rewardUFD)
 		var rewardUFDBox = Number(user.rewardUFDBox)
-		var maxAmount = Math.floor(rewardUFD/config.amount_game_rewardufd)+rewardUFDBox
+		var maxAmount = Math.floor(rewardUFD/config.amount_box_payufd)+rewardUFDBox
 		if(maxAmount < maxPermit) throw new Error("not enough ufdbox to mint")
 		if(maxPermit < rewardUFDBox){
 			maxPermit = rewardUFDBox
 		}else if(maxPermit > rewardUFDBox){
 			var newbox = maxPermit - rewardUFDBox
-			var newUFD = newbox*config.amount_game_rewardufd
-			var sqlres = await mysqlQuery(`updaet user set rewardUFD=rewardUFD-${newUFD}, rewardUFDBox=rewardUFDBox+${newbox} where id=?`, [user.id])
-			if(sqlres.code < 0) throw sqlres.result
-		}
-		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
-    	var data = Web3.utils.encodePacked(config.chainid, config.addr_offerbox, "mint", 0, user.address, maxPermit, deadline)
-    	const hash = Web3.utils.sha3(data)
-    	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
-		const result = {round:0,address:user.address,maxPermit,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
-		res.send({success:true, result})
-	}catch(e){
-		console.error(e)
-		res.send({success:false, result:e.toString()})
-	}
-})
-
-// header: x-token
-// param: maxPermit
-app.post('/offerbox_sign', async(req, res)=>{
-	try{
-		var user = getUser(req.headers['x-token'])
-		var maxPermit = Number(req.query.maxPermit)
-		if(maxPermit == 0) throw new Error("no ufdbox to mint")
-		if(!Web3.isAsset(user.address)) throw new Error("invalid address")
-		var rewardUFD = Number(user.rewardUFD)
-		var rewardUFDBox = Number(user.rewardUFDBox)
-		var maxAmount = Math.floor(rewardUFD/config.amount_game_rewardufd)+rewardUFDBox
-		if(maxAmount < maxPermit) throw new Error("not enough ufdbox to mint")
-		if(maxPermit < rewardUFDBox){
-			maxPermit = rewardUFDBox
-		}else if(maxPermit > rewardUFDBox){
-			var newbox = maxPermit - rewardUFDBox
-			var newUFD = newbox*config.amount_game_rewardufd
+			var newUFD = newbox*config.amount_box_payufd
 			var sqlres = await mysqlQuery(`updaet user set rewardUFD=rewardUFD-${newUFD}, rewardUFDBox=rewardUFDBox+${newbox} where id=?`, [user.id])
 			if(sqlres.code < 0) throw sqlres.result
 		}
@@ -347,8 +315,8 @@ app.post('/team_join', async(req, res)=>{
 		var user = getUser(req.headers['x-token'])
 		var leader = req.query.leader
 		if(user.team != null) throw new Error('already joined')
-		if(!Web3.isAsset(leader)) throw new Error('invalid leader address')
-		var sqlres = await mysqlQuery("select * from team where leader=? and hash is not null", [leader])
+		if(!Web3.utils.isAddress(leader)) throw new Error('invalid leader address')
+		var sqlres = await mysqlQuery("select * from team where leader=? and payhash is not null", [leader])
 		if(sqlres.code < 0) throw sqlres.result
 		if(sqlres.result.length == 0) throw new Error('team not exists')
 		sqlres = await mysqlQuery('update user set team=? where id=?', [leader,user.id])
