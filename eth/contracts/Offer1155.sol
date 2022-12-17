@@ -105,7 +105,7 @@ contract Offer1155 is Ownable{
         emit Mint(round, msg.sender, amount, currencyAmount);
     }
     
-    function mint(uint256 round, uint32 amount) external{
+    function mint(uint256 round, uint32 amount) external payable{
         _mint(round, amount, false);
     }
     

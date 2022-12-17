@@ -144,7 +144,7 @@ app.post("/upload", upload.single("logo"), async (req, res) => {
     var name = req.body.name
     var description = req.body.description
     var email = req.body.email
-    var inviter = req.body.inviter == undefined ? null : req.body.inviter
+    var inviter = (req.body.inviter == undefined || req.body.inviter == '') ? null : req.body.inviter
     var isleader = await isTeamLeader(inviter)
     if(!Web3.utils.isAddress(user.address)) throw new Error("invalid user address")
     if(!isleader) throw new Error("invalid inviter")
@@ -172,7 +172,7 @@ app.post("/upload", upload.single("logo"), async (req, res) => {
 // header: x-token
 app.post('/user', async(req, res)=>{
 	try{
-		var user = getUser(req.headers['x-token'])
+		var user = await getUser(req.headers['x-token'])
 		res.send({success:true, result:user})
 	}catch(e){
 		console.error(e)
@@ -193,7 +193,7 @@ const ethVerify = (hash, v, r, s, address)=>{
 // param: address nonce v r s
 app.post('/user_setaddress', async(req, res)=>{
 	try{
-		var user = getUser(req.headers['x-token'])
+		var user = await getUser(req.headers['x-token'])
 		var nonce = Number(req.query.nonce)
 		var address = req.query.address.toLowerCase()
 		if(!Web3.utils.isAddress(address)) throw new Error('invalid address')
@@ -216,12 +216,12 @@ app.post('/user_setaddress', async(req, res)=>{
 // param: tokenId
 app.post('/bindbox', async(req, res)=>{
 	try{
-		var user = getUser(req.headers['x-token'])
+		var user = await getUser(req.headers['x-token'])
 		var tokenId = Number(req.query.tokenId)
-		if(Web3.utils.isAddress(user.address)) throw new Error('invalid address')
-		var web3 = new Web3(config.rpc)
+		if(!Web3.utils.isAddress(user.address)) throw new Error('invalid address')
+		var web3 = new Web3(key.rpc)
 		var contract = new web3.eth.Contract(abi_box, config.addr_box721)
-		var owner = await contract.methods.ownerOf(tokenId)
+		var owner = await contract.methods.ownerOf(tokenId).call()
 		if(owner.toLowerCase() != user.address.toLowerCase()) throw new Error("only tokenId owner")
 		var sqlres = await mysqlQuery("select * from bindbox where tokenId=?", [tokenId])
 		if(sqlres.code < 0) throw sqlres.result
@@ -229,7 +229,9 @@ app.post('/bindbox', async(req, res)=>{
 			sqlres = await mysqlQuery("insert into bindbox(tokenId,times) values(?,0)", [tokenId])
 			if(sqlres.code < 0) throw sqlres.result
 		}
-		sqlres = await mysqlQuery("update user set bindbox=? where id=?", [tokenId, user.id])
+		sqlres = await mysqlQuery("update user set bindBox=null where bindbox=?", [tokenId])
+		if(sqlres.code < 0) throw sqlres.result
+		sqlres = await mysqlQuery("update user set bindBox=? where id=?", [tokenId, user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:'OK'})
 	}catch(e){
@@ -240,10 +242,10 @@ app.post('/bindbox', async(req, res)=>{
 
 // header: x-token
 // param: maxPermit
-app.post('/offerbox_sign', async(req, res)=>{
+app.post('/mintbox_sign', async(req, res)=>{
 	try{
-		var user = getUser(req.headers['x-token'])
-		var minted = Number(req.query.maxPermit)
+		var user = await getUser(req.headers['x-token'])
+		var maxPermit = Number(req.query.maxPermit)
 		if(!Web3.utils.isAddress(user.address)) throw new Error("invalid address")
 		var rewardUFD = Number(user.rewardUFD)
 		var rewardUFDBox = Number(user.rewardUFDBox)
@@ -254,7 +256,7 @@ app.post('/offerbox_sign', async(req, res)=>{
 		}else if(maxPermit > rewardUFDBox){
 			var newbox = maxPermit - rewardUFDBox
 			var newUFD = newbox*config.amount_box_payufd
-			var sqlres = await mysqlQuery(`updaet user set rewardUFD=rewardUFD-${newUFD}, rewardUFDBox=rewardUFDBox+${newbox} where id=?`, [user.id])
+			var sqlres = await mysqlQuery(`update user set rewardUFD=rewardUFD-${newUFD}, rewardUFDBox=rewardUFDBox+${newbox} where id=?`, [user.id])
 			if(sqlres.code < 0) throw sqlres.result
 		}
 		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
@@ -272,8 +274,8 @@ app.post('/offerbox_sign', async(req, res)=>{
 // header: x-token
 app.post('/claimusdt_sign', async(req, res)=>{
 	try{
-		var user = getUser(req.headers['x-token'])
-		if(!Web3.isAsset(user.address)) throw new Error("invalid address")
+		var user = await getUser(req.headers['x-token'])
+		if(!Web3.utils.isAddress(user.address)) throw new Error("invalid address")
 		var maxPermit = new BigNumber(user.rewardUSDT).times(config.decimals_usdt)
 		if(maxPermit.eq(0)) throw new Error("no usdt to claim")
 		maxPermit = maxPermit.toFixed(0)
@@ -292,8 +294,8 @@ app.post('/claimusdt_sign', async(req, res)=>{
 // header: x-token
 app.post('/claimbadge_sign', async(req, res)=>{
 	try{
-		var user = getUser(req.headers['x-token'])
-		if(!Web3.isAsset(user.address)) throw new Error("invalid address")
+		var user = await getUser(req.headers['x-token'])
+		if(!Web3.utils.isAddress(user.address)) throw new Error("invalid address")
 		var maxPermit = Number(user.rewardBadge)
 		if(maxPermit == 0) throw new Error("no usdt to claim")
 		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
@@ -312,7 +314,7 @@ app.post('/claimbadge_sign', async(req, res)=>{
 // param: leader
 app.post('/team_join', async(req, res)=>{
 	try{
-		var user = getUser(req.headers['x-token'])
+		var user = await getUser(req.headers['x-token'])
 		var leader = req.query.leader
 		if(user.team != null) throw new Error('already joined')
 		if(!Web3.utils.isAddress(leader)) throw new Error('invalid leader address')

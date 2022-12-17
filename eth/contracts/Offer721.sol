@@ -62,7 +62,7 @@ contract Offer721 is Ownable{
     function _mint(uint256 round, uint256 amount, bool whitelist) internal{
         Offer memory offer = offers[round];
         require(offer.startTime <= block.timestamp, "not start");
-        uint256 currencyAmount = whitelist ? amount * offer.price1 : amount * offer.price2;
+        uint256 currencyAmount = whitelist ? amount * offer.price2 : amount * offer.price1;
         if(offer.currency == address(0)){
             require(msg.value == currencyAmount, "invalid value");
             if(feeTo != address(0)) payable(feeTo).transfer(currencyAmount);
@@ -73,7 +73,7 @@ contract Offer721 is Ownable{
         emit Mint(round, msg.sender, amount, currencyAmount);
     }
     
-    function mint(uint256 round, uint256 amount) external{
+    function mint(uint256 round, uint256 amount) external payable{
         _mint(round, amount, false);
     }
     
