@@ -330,6 +330,56 @@ app.post('/team_join', async(req, res)=>{
 	}
 })
 
+// param: pageNum pageSize
+app.get('/team_list', async(req, res)=>{
+	try{
+		var sqlres = await mysqlQuery("select name,logo,email,description,createTime from team where hash is not null",[])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.post('/team_my', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select * from team where leader=?", user.address)
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.post('/team_myinvite', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select * from team where inviter=?", user.address)
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// param: tokenIds(like 0,3,999)
+app.get('/box_times', async(req, res)=>{
+	try{
+		var sqlres = await mysqlQuery("select * from bindbox where tokenId in (?)", req.query.tokenIds)
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
 app.listen('9000', ()=>{
 	console.log('listen:9000')
 })
