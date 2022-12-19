@@ -366,19 +366,19 @@ app.get('/team_list', async(req, res)=>{
 app.post('/team_my', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery("select * from team where leader=?", user.address)
+		var sqlres = await mysqlQuery("select * from team where leader=?", [user.address])
 		if(sqlres.code < 0) throw sqlres.result
 		var result = sqlres.result[0]
 		sqlres = await mysqlQuery("select count(*) as count from user where team=?", [user.address])
 		if(sqlres.code < 0) throw sqlres.result
 		result.memberNum = Number(sqlres.result[0].count)
 		sqlres = await mysqlQuery(
-			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and round(m.costAmount/m.boxAmount)>${config.amount_box_buyusdt}-0.01  where u.team=?`,
+			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and m.costAmount/m.boxAmount>${config.amount_box_buyusdt}-0.01  where u.team=?`,
 			[user.address])
 		if(sqlres.code < 0) throw sqlres.result
 		result.buybox = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].sum)
 		sqlres = await mysqlQuery(
-			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and round(m.costAmount/m.boxAmount)<${config.amount_box_buy2usdt}+0.01  where u.team=?`,
+			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and m.costAmount/m.boxAmount<${config.amount_box_buy2usdt}+0.01  where u.team=?`,
 			[user.address])
 		if(sqlres.code < 0) throw sqlres.result
 		result.buybox2 = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].sum)
@@ -395,16 +395,16 @@ app.post('/team_members', async(req, res)=>{
 		var user = await getUser(req.headers['x-token'])
 		if(!Web3.utils.isAddress(user.team)) throw new Error("not join")
 		if(user.team.toLowerCase() != user.address) throw new Error("not team leader")
-		var sqlres = await mysqlQuery(`select user where team=?`, [user.team])
+		var sqlres = await mysqlQuery(`select * from user where team=?`, [user.team])
 		if(sqlres.code < 0) throw sqlres.result
 		var result = sqlres.result
 		for(var i = 0; i < result.length; i++){
 			var r = result[i]
 			if(Web3.utils.isAddress(r.address)){
-				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and round(m.costAmount/m.boxAmount)>${config.amount_box_buyusdt}-0.01`, [r.address])
+				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and m.costAmount/m.boxAmount>${config.amount_box_buyusdt}-0.01`, [r.address])
 				if(sqlres.code < 0) throw sqlres.result
 				r.buybox = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].sum)
-				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and round(m.costAmount/m.boxAmount)<${config.amount_box_buy2usdt}+0.01`, [r.address])
+				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and m.costAmount/m.boxAmount<${config.amount_box_buy2usdt}+0.01`, [r.address])
 				if(sqlres.code < 0) throw sqlres.result
 				r.buybox = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].sum)
 			}else{
@@ -424,9 +424,13 @@ app.post('/team_myjoin', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
 		if(!Web3.utils.isAddress(user.team)) throw new Error("not join")
-		var sqlres = await mysqlQuery("select * from team where leader=?", user.leader)
+		var sqlres = await mysqlQuery("select * from team where leader=?", [user.team])
 		if(sqlres.code < 0) throw sqlres.result
-		res.send({success:true, result:sqlres.result})
+		var result = sqlres.result
+		sqlres = await mysqlQuery("select count(*) as count from user where team=?", [user.team])
+		if(sqlres.code < 0) throw sqlres.result
+		result.memberNum = sqlres.result.length == 0 ? 0 : sqlres.result[0].count
+		res.send({success:true, result:result})
 	}catch(e){
 		console.error(e)
 		res.send({success:false, result:e.toString()})
@@ -437,8 +441,11 @@ app.post('/team_myjoin', async(req, res)=>{
 app.post('/team_myinvite', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery("select * from team where inviter=?", user.address)
+		var sqlres = await mysqlQuery("select * from team where inviter=?", [user.address])
 		if(sqlres.code < 0) throw sqlres.result
+		sqlres = await mysqlQuery("select count(*) as count from user where team=?", [user.team])
+		if(sqlres.code < 0) throw sqlres.result
+		result.memberNum = sqlres.result.length == 0 ? 0 : sqlres.result[0].count
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
 		console.error(e)
@@ -462,7 +469,7 @@ app.get('/box_times', async(req, res)=>{
 app.get('/game_user', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery2("select * from tbl_userdata where uid=?", user.id)
+		var sqlres = await mysqlQuery2("select * from tbl_userdata where uid=?", [user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
@@ -492,7 +499,7 @@ app.get('/reward_record', async(req, res)=>{
 		var pageSize = Number(req.query.pageSize)
 		var pageNum = Number(req.query.pageNum)
 		var pageStart = pageSize*pageNum
-		var sqlres = await mysqlQuery(`select * reward_record where uid=? limit ${pageStart},${pageNum}`, [user.id])
+		var sqlres = await mysqlQuery(`select * from reward_record where uid=? limit ${pageStart},${pageNum}`, [user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
