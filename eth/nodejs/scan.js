@@ -128,12 +128,14 @@ const scanBlock = async()=>{
 								console.error(sqlres.result)
 							}else if(sqlres.result.length > 0){
 								var leader = sqlres.result[0]
-								var teamAmount = uAmount(costAmount.times(config.percent_box_team_leader).div(100))
-								sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${teamAmount} where address=?`, [user.team])
-								if(sqlres.code < 0) console.error(sqlres.result)
-								sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
-									[leader.id,'usdt','mintbox_teamLeader',teamAmount])
-								if(sqlres.code < 0) console.error(sqlres.result)
+								if(user.id != leader.id){
+									var teamAmount = uAmount(costAmount.times(config.percent_box_team_leader).div(100))
+									sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${teamAmount} where address=?`, [user.team])
+									if(sqlres.code < 0) console.error(sqlres.result)
+									sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
+										[leader.id,'usdt','mintbox_teamLeader',teamAmount])
+									if(sqlres.code < 0) console.error(sqlres.result)
+								}
 								sqlres = await mysqlQuery("select * from team where leader=?", [user.team])
 								if(sqlres.code < 0){
 									console.error(sqlres.result)

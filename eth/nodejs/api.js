@@ -220,7 +220,7 @@ app.post('/user_setaddress', async(req, res)=>{
 		if(Web3.utils.isAddress(user.address)) throw new Error('already set')
 		var now = Math.ceil(new Date().getTime()/1000)
 		if(nonce < (now - config.timeout_sign) || nonce > (now + config.timeout_sign)) throw new Error("invalid nonce")
-		var hash = ethMsgHash(sign_prefix+nonce)
+		var hash = ethMsgHash(config.sign_prefix+nonce)
 		var addr = ethVerify(hash, v, r, s)
 		if(addr.toLowerCase() != address) throw new Error("sign error")
 		var sqlres = await mysqlQuery("update user set address=? where id=?", [address, user.id])
