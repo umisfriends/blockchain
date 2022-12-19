@@ -485,6 +485,24 @@ app.get('/game_user', async(req, res)=>{
 // })
 
 // header: x-token
+// param: pageSize pageNum
+app.get('/reward_record', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var pageSize = Number(req.query.pageSize)
+		var pageNum = Number(req.query.pageNum)
+		var pageStart = pageSize*pageNum
+		var sqlres = await mysqlQuery(`select * reward_record where uid=? limit ${pageStart},${pageNum}`, [user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+
+// header: x-token
 app.get('/user_list', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])

@@ -93,6 +93,15 @@ const scanBlock = async()=>{
 							var sAmount = uAmount(amount.times(config.percent_team_invite).div(100))
 							sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${sAmount} where address=?`, [team.inviter])
 							if(sqlres.code < 0) console.error(sqlres.result)
+							sqlres = await mysqlQuery('select * from user where address=?', [team.inviter])
+							if(sqlres.code < 0){
+								console.error(sqlres.result)
+							}else if(sqlres.result.length > 0){
+								var teamInviter = sqlres.result[0]
+								sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
+									[teamInviter.id,'usdt','regteam_teamInviter',sAmount])
+								if(sqlres.code < 0) console.error(sqlres.result)
+							}
 						}
 					}
 				}
@@ -122,6 +131,9 @@ const scanBlock = async()=>{
 								var teamAmount = uAmount(costAmount.times(config.percent_box_team_leader).div(100))
 								sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${teamAmount} where address=?`, [user.team])
 								if(sqlres.code < 0) console.error(sqlres.result)
+								sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
+									[leader.id,'usdt','mintbox_teamLeader',teamAmount])
+								if(sqlres.code < 0) console.error(sqlres.result)
 								sqlres = await mysqlQuery("select * from team where leader=?", [user.team])
 								if(sqlres.code < 0){
 									console.error(sqlres.result)
@@ -135,6 +147,9 @@ const scanBlock = async()=>{
 											var teaminviter = sqlres.result[0]
 											var inviteAmount = uAmount(costAmount.times(config.percent_box_team_inviter).div(100))
 											sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${inviteAmount} where id=?`, [teaminviter.id])
+											if(sqlres.code < 0) console.error(sqlres.result)
+											sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
+												[teaminviter.id,'usdt','mintbox_teamInviter',inviteAmount])
 											if(sqlres.code < 0) console.error(sqlres.result)
 										}
 									}
@@ -152,8 +167,11 @@ const scanBlock = async()=>{
 									inviteUsers.push(to)
 									sqlres = await mysqlQuery("update user set inviteUsers=? where id=?", [JSON.stringify(inviteUsers), inviter.id])
 									if(sqlres.code < 0) console.error(sqlres.result)
-									if(inviteUsers.length % times_box_inviteuser == 0){
+									if(inviteUsers.length % config.times_box_inviteuser == 0){
 										sqlres = await mysqlQuery(`update user set rewardBadge=rewardBadge+${amount_box_invite_getblade} where id=`, [inviter.id])
+										if(sqlres.code < 0) console.error(sqlres.result)
+										sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
+											[inviter.id,'badge','mintbox_validUserInviter',1])
 										if(sqlres.code < 0) console.error(sqlres.result)
 									}
 								}
@@ -212,6 +230,9 @@ const scanGame = async()=>{
 								sqlres = await mysqlQuery("update bindbox set times=times+1 where tokenId=?", user.bindBox)
 								if(sqlres.code < 0) console.error(sqlres.result)
 								sqlres = await mysqlQuery(`update user set ufdUpdateTime=?,rewardUFD=rewardUFD+${config.amount_game_rewardufd} where id=?`, [log.updated_at, user.id])
+								if(sqlres.code < 0) console.error(sqlres.result)
+								sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
+									[user.id,'ufd','gamelevel_player',config.amount_game_rewardufd])
 								if(sqlres.code < 0) console.error(sqlres.result)
 							}
 						}
