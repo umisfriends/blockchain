@@ -168,7 +168,7 @@ const scanBlock = async()=>{
 									sqlres = await mysqlQuery("update user set inviteUsers=? where id=?", [JSON.stringify(inviteUsers), inviter.id])
 									if(sqlres.code < 0) console.error(sqlres.result)
 									if(inviteUsers.length % config.times_box_inviteuser == 0){
-										sqlres = await mysqlQuery(`update user set rewardBadge=rewardBadge+${amount_box_invite_getblade} where id=`, [inviter.id])
+										sqlres = await mysqlQuery(`update user set rewardBadge=rewardBadge+${amount_box_invite_getblade} where id=?`, [inviter.id])
 										if(sqlres.code < 0) console.error(sqlres.result)
 										sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
 											[inviter.id,'badge','mintbox_validUserInviter',1])

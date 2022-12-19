@@ -379,7 +379,7 @@ app.post('/team_members', async(req, res)=>{
 				r.buybox = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].sum)
 				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and costAmount/boxAmount<${config.amount_box_buy2usdt}+0.01`, [r.address])
 				if(sqlres.code < 0) throw sqlres.result
-				r.buybox = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].sum)
+				r.buybox2 = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].sum)
 			}else{
 				r.buybox = 0
 				r.buybox2 = 0
