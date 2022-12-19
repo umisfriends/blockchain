@@ -16,6 +16,8 @@ const config = {
 	times_game_rewardperday:2,
 	times_game_rewardufd:5,
 	amount_box_payufd:500,
+	amount_box_buyusdt:1000,
+	amount_box_buy2usdt:250,
 	times_box_inviteuser:3,
 	amount_box_invite_getblade:1,
 	percent_box_team_leader:50,

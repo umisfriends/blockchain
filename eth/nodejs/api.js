@@ -437,7 +437,7 @@ app.post('/team_myinvite', async(req, res)=>{
 // param: tokenIds(like 0,3,999)
 app.get('/box_times', async(req, res)=>{
 	try{
-		var sqlres = await mysqlQuery("select * from bindbox where tokenId in (?)", req.query.tokenIds)
+		var sqlres = await mysqlQuery(`select * from bindbox where tokenId in (${req.query.tokenIds})`, [])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
