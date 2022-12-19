@@ -168,7 +168,7 @@ const scanBlock = async()=>{
 									sqlres = await mysqlQuery("update user set inviteUsers=? where id=?", [JSON.stringify(inviteUsers), inviter.id])
 									if(sqlres.code < 0) console.error(sqlres.result)
 									if(inviteUsers.length % config.times_box_inviteuser == 0){
-										sqlres = await mysqlQuery(`update user set rewardBadge=rewardBadge+${amount_box_invite_getblade} where id=?`, [inviter.id])
+										sqlres = await mysqlQuery(`update user set rewardBadge=rewardBadge+${config.amount_box_invite_getblade} where id=?`, [inviter.id])
 										if(sqlres.code < 0) console.error(sqlres.result)
 										sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
 											[inviter.id,'badge','mintbox_validUserInviter',1])
@@ -206,7 +206,7 @@ const scanGame = async()=>{
 		var toTime = sqlres.result[0].updateTime
 		if(fromTime < toTime){
 			console.log(fromTime, '=>', toTime)
-			sqlres = await mysqlQuery2("select uid,count(*) as count,max(updated_at) as updated_at from tbl_user_level_details where result=1 and updated_at>? and updated_at<=? group by uid", [fromTime, toTime])
+			sqlres = await mysqlQuery2("select uid,count(*) as count,max(updated_at) as updated_at from tbl_user_level_details where updated_at>? and updated_at<=? group by uid", [fromTime, toTime])
 			if(sqlres.code <0) throw sqlres.result
 			var logs = sqlres.result
 			console.log('records',logs.length)
