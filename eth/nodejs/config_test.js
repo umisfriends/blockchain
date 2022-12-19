@@ -1,0 +1,26 @@
+const BigNumber = require('bignumber.js')
+const config = {
+	uploadDir:'./upload',
+	chainid:5,
+	addr_registry:"0xFdF75A1b4e8c2f17dd6Cc212Af967B0AF692d8f5".toLowerCase(),
+	addr_offerbadge:"0xc9E0Ba98DAE06484b0ee90C46646d59aA9749e1F".toLowerCase(),
+	addr_offerbox:"0xa65875c660Ea959733A3d07385429fCAB854c408".toLowerCase(),
+	addr_box721:"0xa4735fA525482A41D156601d409808f784B33eD3".toLowerCase(),
+	addr_badge1155:"0xf6D916107293AB56d784FcA6a6B82D2D628C61A9".toLowerCase(),
+	addr_usdt:"0xdFe9bE18C7DBc409911750bD8253dA5a2Af5B8Bb".toLowerCase(),
+	addr_claim1155:"0xc3Aa62d46688fCfb676E84b7D660BBF7C787f0bE".toLowerCase(),
+	addr_claim20:"0x1b6eBFfD39984d97868b08E6E95aA80153bE69ff".toLowerCase(),
+	decimals_usdt:1e18,
+	percent_team_invite:20,
+	amount_game_rewardufd:500,
+	times_game_rewardperday:2,
+	times_game_rewardufd:5,
+	amount_box_payufd:500,
+	times_box_inviteuser:3,
+	amount_box_invite_getblade:1,
+	percent_box_team_leader:50,
+	percent_box_team_inviter:10,
+	timeout_sign:300,
+	sign_prefix:"I am signing my one-time nonce:",
+}
+module.exports = config

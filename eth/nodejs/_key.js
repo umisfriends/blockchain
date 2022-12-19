@@ -1,14 +1,22 @@
 const key = {
-	prikey:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-	db_web:'...',
-	db_game:'...',
+	prikey:"",
 	mysql:{
-		host: '...',
-		port: '...',
-		user: '...',
-		password: '...',
-		database: '...',
+		host: '',
+		port: '',
+		user: '',
+		password: '',
+		database: '',
+		timezone: '',
 	},
-	jwtkey:"...",
+	mysql2:{
+		host: '',
+		port: '',
+		user: '',
+		password: '',
+		database: '',
+		timezone: '',
+	},
+	jwtkey:"",
+	rpc:"",
 }
 module.exports = key
