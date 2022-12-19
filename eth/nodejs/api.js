@@ -373,12 +373,12 @@ app.post('/team_my', async(req, res)=>{
 		if(sqlres.code < 0) throw sqlres.result
 		result.memberNum = Number(sqlres.result[0].count)
 		sqlres = await mysqlQuery(
-			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and u.team=? and m.costAmount>${config.amount_box_buyusdt}-0.01`,
+			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and round(m.costAmount/m.boxAmount)>${config.amount_box_buyusdt}-0.01  where u.team=?`,
 			[user.address])
 		if(sqlres.code < 0) throw sqlres.result
 		result.buybox = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].sum)
 		sqlres = await mysqlQuery(
-			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and u.team=? and m.costAmount<${config.amount_box_buy2usdt}+0.01`,
+			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and round(m.costAmount/m.boxAmount)<${config.amount_box_buy2usdt}+0.01  where u.team=?`,
 			[user.address])
 		if(sqlres.code < 0) throw sqlres.result
 		result.buybox2 = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].sum)
@@ -395,12 +395,24 @@ app.post('/team_members', async(req, res)=>{
 		var user = await getUser(req.headers['x-token'])
 		if(!Web3.utils.isAddress(user.team)) throw new Error("not join")
 		if(user.team.toLowerCase() != user.address) throw new Error("not team leader")
-		var sqlres = await mysqlQuery(`select u.team as team,u.address as address,u.email as email,u.joinTime as joinTime,
-			round(sum(costAmount>${config.amount_box_buyusdt}-0.01)/${config.amount_box_buyusdt}) as buybox,
-			round(sum(costAmount<${config.amount_box_buy2usdt}+0.01)/${config.amount_box_buy2usdt}) as buybox2
-			 from user as u left join mintbox as m on m.account=u.address where u.team=? group by u.id`, [user.team])
+		var sqlres = await mysqlQuery(`select user where team=?`, [user.team])
 		if(sqlres.code < 0) throw sqlres.result
-		res.send({success:true, result:sqlres.result})
+		var result = sqlres.result
+		for(var i = 0; i < result.length; i++){
+			var r = result[i]
+			if(Web3.utils.isAddress(r.address)){
+				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and round(m.costAmount/m.boxAmount)>${config.amount_box_buyusdt}-0.01`, [r.address])
+				if(sqlres.code < 0) throw sqlres.result
+				r.buybox = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].sum)
+				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and round(m.costAmount/m.boxAmount)<${config.amount_box_buy2usdt}+0.01`, [r.address])
+				if(sqlres.code < 0) throw sqlres.result
+				r.buybox = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].sum)
+			}else{
+				r.buybox = 0
+				r.buybox2 = 0
+			}
+		}
+		res.send({success:true, result:result})
 	}catch(e){
 		console.error(e)
 		res.send({success:false, result:e.toString()})
@@ -412,7 +424,7 @@ app.post('/team_myjoin', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
 		if(!Web3.utils.isAddress(user.team)) throw new Error("not join")
-		var sqlres = await mysqlQuery("select * from team where leader=？", user.leader)
+		var sqlres = await mysqlQuery("select * from team where leader=?", user.leader)
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
@@ -450,7 +462,7 @@ app.get('/box_times', async(req, res)=>{
 app.get('/game_user', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery2("select * from tb_userdata where uid=?", user.id)
+		var sqlres = await mysqlQuery2("select * from tbl_userdata where uid=?", user.id)
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
@@ -460,17 +472,17 @@ app.get('/game_user', async(req, res)=>{
 })
 
 // header: x-token
-app.get('/game_record', async(req, res)=>{
-	try{
-		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery2("select * from tbl_user_level_details where uid=?", user.id)
-		if(sqlres.code < 0) throw sqlres.result
-		res.send({success:true, result:sqlres.result})
-	}catch(e){
-		console.error(e)
-		res.send({success:false, result:e.toString()})
-	}
-})
+// app.get('/game_record', async(req, res)=>{
+// 	try{
+// 		var user = await getUser(req.headers['x-token'])
+// 		var sqlres = await mysqlQuery2("select * from tbl_user_level_details where uid=?", user.id)
+// 		if(sqlres.code < 0) throw sqlres.result
+// 		res.send({success:true, result:sqlres.result})
+// 	}catch(e){
+// 		console.error(e)
+// 		res.send({success:false, result:e.toString()})
+// 	}
+// })
 
 // header: x-token
 app.get('/user_list', async(req, res)=>{
