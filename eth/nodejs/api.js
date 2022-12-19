@@ -33,6 +33,25 @@ const mysqlQuery = async(sql, values) => {
     })
 }
 
+const mysqlPool2 = mysql.createPool(key.mysql2)
+const mysqlQuery2 = async(sql, values) => {
+    return new Promise( resolve =>{
+        mysqlPool2.getConnection((err,connection)=>{
+            if(err) {
+                console.error('sql='+sql,'\n values='+values);
+                return resolve({code:-1,message:'mysql connection error',result:err})
+            }
+            connection.query(sql,values,(err,rows)=>{
+                connection.release()
+                if(err) {
+                    return resolve({code:-1,message:'mysql query error',result:err})
+                }
+                resolve({code:0,message:'success',result:rows})
+            })
+        })
+    })
+}
+
 app.all("*",function(req,res,next){
     res.header("Access-Control-Allow-Origin","*");
     res.header("Access-Control-Allow-Headers","*");
@@ -135,12 +154,13 @@ app.get("/team_name", async()=>{
   	}
 })
 
-// param: logo(file/image) name(string) description(string) email(string) inviter(address,option)
+// param: [logo(file/image)] name(string) description(string) email(string) inviter(address,option)
 // header: x-token
-app.post("/upload", upload.single("logo"), async (req, res) => {
+// app.post("/upload", upload.single("logo"), async (req, res) => {
+app.post("/upload", async (req, res) => {
   try {
     var user = await getUser(req.headers['x-token'])
-    var logo = req.file.filename
+    var logo = null //req.file.filename
     var name = req.body.name
     var description = req.body.description
     var email = req.body.email
@@ -321,7 +341,7 @@ app.post('/team_join', async(req, res)=>{
 		var sqlres = await mysqlQuery("select * from team where leader=? and payhash is not null", [leader])
 		if(sqlres.code < 0) throw sqlres.result
 		if(sqlres.result.length == 0) throw new Error('team not exists')
-		sqlres = await mysqlQuery('update user set team=? where id=?', [leader,user.id])
+		sqlres = await mysqlQuery('update user set team=?,joinTime=now() where id=?', [leader,user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:'OK'})
 	}catch(e){
@@ -348,6 +368,52 @@ app.post('/team_my', async(req, res)=>{
 		var user = await getUser(req.headers['x-token'])
 		var sqlres = await mysqlQuery("select * from team where leader=?", user.address)
 		if(sqlres.code < 0) throw sqlres.result
+		var result = sqlres.result[0]
+		sqlres = await mysqlQuery("select count(*) as count from user where team=?", [user.address])
+		if(sqlres.code < 0) throw sqlres.result
+		result.memberNum = Number(sqlres.result[0].count)
+		sqlres = await mysqlQuery(
+			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and u.team=? and m.costAmount>${config.amount_box_buyusdt}-0.01`,
+			[user.address])
+		if(sqlres.code < 0) throw sqlres.result
+		result.buybox = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].sum)
+		sqlres = await mysqlQuery(
+			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and u.team=? and m.costAmount<${config.amount_box_buy2usdt}+0.01`,
+			[user.address])
+		if(sqlres.code < 0) throw sqlres.result
+		result.buybox2 = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].sum)
+		res.send({success:true, result:result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.post('/team_members', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		if(!Web3.utils.isAddress(user.team)) throw new Error("not join")
+		if(user.team.toLowerCase() != user.address) throw new Error("not team leader")
+		var sqlres = await mysqlQuery(`select u.team as team,u.address as address,u.email as email,u.joinTime as joinTime,
+			round(sum(costAmount>${config.amount_box_buyusdt}-0.01)/${config.amount_box_buyusdt}) as buybox,
+			round(sum(costAmount<${config.amount_box_buy2usdt}+0.01)/${config.amount_box_buy2usdt}) as buybox2
+			 from user as u left join mintbox as m on m.account=u.address where u.team=? group by u.id`, [user.team])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.post('/team_myjoin', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		if(!Web3.utils.isAddress(user.team)) throw new Error("not join")
+		var sqlres = await mysqlQuery("select * from team where leader=？", user.leader)
+		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
 		console.error(e)
@@ -372,6 +438,45 @@ app.post('/team_myinvite', async(req, res)=>{
 app.get('/box_times', async(req, res)=>{
 	try{
 		var sqlres = await mysqlQuery("select * from bindbox where tokenId in (?)", req.query.tokenIds)
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.get('/game_user', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery2("select * from tb_userdata where uid=?", user.id)
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.get('/game_record', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery2("select * from tbl_user_level_details where uid=?", user.id)
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header: x-token
+app.get('/user_list', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select * from user where left(p_ids,8)=?", [user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
