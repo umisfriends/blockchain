@@ -70,7 +70,7 @@ const scanBlock = async()=>{
 		console.log('logs',logs.length)
 		for(var i = 0; i < logs.length; i++){
 			var log = logs[i]
-			if(log.address.toLowerCase()==config.addr_registry && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_registry){
+			if(false && log.address.toLowerCase()==config.addr_registry && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_registry){
 				var leader = '0x'+log.topics[1].substr(26)
 				var token = '0x'+log.data.substr(26,40)
 				var amount = new BigNumber('0x'+log.data.substr(66))
@@ -96,8 +96,8 @@ const scanBlock = async()=>{
 						}
 					}
 				}
-			}else if(los.address.toLowerCase()==config.addr_offerbox && log.topics.length==3 && log.data.length==130 && log.topics[0]==topic_mintbox){
-				var round = new BigNumber(topics[1]).toFixed(0)
+			}else if(log.address.toLowerCase()==config.addr_offerbox && log.topics.length==3 && log.data.length==130 && log.topics[0]==topic_mintbox){
+				var round = new BigNumber(log.topics[1]).toFixed(0)
 				var to = '0x'+log.topics[2].substr(26)
 				var boxAmount = new BigNumber(log.data.substr(0, 66)).toFixed(0)
 				var costAmount = new BigNumber('0x'+log.data.substr(66))
@@ -105,8 +105,8 @@ const scanBlock = async()=>{
 				sqlres = await mysqlQuery("select * from mintbox where hash=?", [hash])
 				if(sqlres.code < 0) throw sqlres.result
 				if(sqlres.result.length == 0){
-					sqlres = await mysqlQuery("insert into mintbox set(hash,round,account,boxAmount,costAmount) values(?,?,?,?,?)",
-						[hash,round,boxAmount,uAmount(costAmount)])
+					sqlres = await mysqlQuery("insert into mintbox(hash,round,account,boxAmount,costAmount) values(?,?,?,?,?)",
+						[hash,round,to,boxAmount,uAmount(costAmount)])
 					if(sqlres.code < 0) throw sqlres.result
 					sqlres = await mysqlQuery("select * from user where address=?", [to])
 					if(sqlres.code < 0){
@@ -141,8 +141,8 @@ const scanBlock = async()=>{
 								}
 							}
 						}
-						if(Web3.utils.isAddress(user.p_address)){
-							sqlres = await mysqlQuery("select * from user where address=?", [user.p_address])
+						if(user.p_ids != null && user.p_ids.length >= 8){
+							sqlres = await mysqlQuery("select * from user where id=?", [user.p_ids.substr(0,8)])
 							if(sqlres.code < 0){
 								console.error(sqlres.result)
 							}else if(sqlres.result.length > 0){
@@ -231,4 +231,4 @@ const scanGame = async()=>{
 }
 
 scanBlock()
-scanGame()
+//scanGame()
