@@ -70,7 +70,7 @@ const scanBlock = async()=>{
 		console.log('logs',logs.length)
 		for(var i = 0; i < logs.length; i++){
 			var log = logs[i]
-			if(false && log.address.toLowerCase()==config.addr_registry && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_registry){
+			if(log.address.toLowerCase()==config.addr_registry && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_registry){
 				var leader = '0x'+log.topics[1].substr(26)
 				var token = '0x'+log.data.substr(26,40)
 				var amount = new BigNumber('0x'+log.data.substr(66))
@@ -252,4 +252,4 @@ const scanGame = async()=>{
 }
 
 scanBlock()
-//scanGame()
+scanGame()
