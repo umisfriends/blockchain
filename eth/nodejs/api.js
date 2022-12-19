@@ -161,10 +161,10 @@ app.post("/upload", async (req, res) => {
   try {
     var user = await getUser(req.headers['x-token'])
     var logo = null //req.file.filename
-    var name = req.body.name
-    var description = req.body.description
-    var email = req.body.email
-    var inviter = (req.body.inviter == undefined || req.body.inviter == '') ? null : req.body.inviter
+    var name = req.query.name
+    var description = req.query.description
+    var email = req.query.email
+    var inviter = (req.query.inviter == undefined || req.query.inviter == '') ? null : req.query.inviter
     var isleader = await isTeamLeader(inviter)
     if(!Web3.utils.isAddress(user.address)) throw new Error("invalid user address")
     if(!isleader) throw new Error("invalid inviter")
@@ -399,7 +399,7 @@ app.post('/team_myjoin', async(req, res)=>{
 		if(!Web3.utils.isAddress(user.team)) throw new Error("not join")
 		var sqlres = await mysqlQuery("select * from team where leader=?", [user.team])
 		if(sqlres.code < 0) throw sqlres.result
-		var result = sqlres.result
+		var result = sqlres.result[0]
 		sqlres = await mysqlQuery("select count(*) as count from user where team=?", [user.team])
 		if(sqlres.code < 0) throw sqlres.result
 		result.memberNum = sqlres.result.length == 0 ? 0 : sqlres.result[0].count
