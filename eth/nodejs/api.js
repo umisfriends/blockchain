@@ -62,43 +62,43 @@ app.all("*",function(req,res,next){
         next();
 })
 
-const inwlbadge = async(round, address)=>{
-	const sqlres = await mysqlQuery(`select * from wl_badge where address=? and round=?`, [address, round])
-	if(sqlres.code < 0) throw sqlres.result
-	return sqlres.result.length > 0
-}
+// const inwlbadge = async(round, address)=>{
+// 	const sqlres = await mysqlQuery(`select * from wl_badge where address=? and round=?`, [address, round])
+// 	if(sqlres.code < 0) throw sqlres.result
+// 	return sqlres.result.length > 0
+// }
 
 // parameter: round, address
-app.get('/mint1155_sign', async(req, res)=>{
-	try{
-		const round = Number(req.query.round)
-		const address = req.query.address
-		const inWhitelist = await inwlbadge(round, address)
-		if(!inWhitelist) throw new Error("not in whitelist")
-		const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
-		const data = Web3.utils.encodePacked(config.chainid, config.addr_offerbadge, "mint", round, address, deadline)
-		const hash = Web3.utils.sha3(data)
-		const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
-		const result = {round,address,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
-		res.send({success:true, result})
-	}catch(e){
-		console.log(e)
-		res.send({success:false, result:e.toString()})
-	}
-})
+// app.get('/mint1155_sign', async(req, res)=>{
+// 	try{
+// 		const round = Number(req.query.round)
+// 		const address = req.query.address
+// 		const inWhitelist = await inwlbadge(round, address)
+// 		if(!inWhitelist) throw new Error("not in whitelist")
+// 		const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
+// 		const data = Web3.utils.encodePacked(config.chainid, config.addr_offerbadge, "mint", round, address, deadline)
+// 		const hash = Web3.utils.sha3(data)
+// 		const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+// 		const result = {round,address,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+// 		res.send({success:true, result})
+// 	}catch(e){
+// 		console.log(e)
+// 		res.send({success:false, result:e.toString()})
+// 	}
+// })
 
 // parameter: round, address
-app.get('/mint1155_inwhitelist', async(req, res)=>{
-	try{
-		const round = Number(req.query.round)
-		const address = req.query.address
-		const inWhitelist = await inwlbadge(round, address)
-		res.send({success:true, result:inWhitelist})
-	}catch(e){
-		console.log(e)
-		res.send({success:false, result:e.toString()})
-	}
-})
+// app.get('/mint1155_inwhitelist', async(req, res)=>{
+// 	try{
+// 		const round = Number(req.query.round)
+// 		const address = req.query.address
+// 		const inWhitelist = await inwlbadge(round, address)
+// 		res.send({success:true, result:inWhitelist})
+// 	}catch(e){
+// 		console.log(e)
+// 		res.send({success:false, result:e.toString()})
+// 	}
+// })
 
 let storage = multer.diskStorage({
   destination: (req, file, cb) => {
