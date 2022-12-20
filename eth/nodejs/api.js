@@ -353,7 +353,7 @@ app.post('/team_join', async(req, res)=>{
 // param: pageNum pageSize
 app.get('/team_list', async(req, res)=>{
 	try{
-		var sqlres = await mysqlQuery("select name,logo,email,description,createTime from team where hash is not null",[])
+		var sqlres = await mysqlQuery("select name,logo,email,description,createTime from team where payhash is not null",[])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
