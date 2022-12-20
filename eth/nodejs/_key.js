@@ -18,5 +18,7 @@ const key = {
 	},
 	jwtkey:"",
 	rpc:"",
+  rpc1:"",
+  rpc2:"",
 }
 module.exports = key

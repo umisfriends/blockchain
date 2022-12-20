@@ -239,7 +239,7 @@ app.post('/bindbox', async(req, res)=>{
 		var user = await getUser(req.headers['x-token'])
 		var tokenId = Number(req.query.tokenId)
 		if(!Web3.utils.isAddress(user.address)) throw new Error('invalid address')
-		var web3 = new Web3(key.rpc)
+		var web3 = new Web3(key.rpc1)
 		var contract = new web3.eth.Contract(abi_box, config.addr_box721)
 		var owner = await contract.methods.ownerOf(tokenId).call()
 		if(owner.toLowerCase() != user.address.toLowerCase()) throw new Error("only tokenId owner")

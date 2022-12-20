@@ -214,7 +214,7 @@ const scanGame = async()=>{
 			console.log('records',logs.length)
 			for(var i = 0; i < logs.length; i++){
 				var log = logs[i]
-				if(Number(log.count) < 2) continue
+				if(Number(log.count) < config.times_game_rewardperday) continue
 				try{
 					sqlres = await mysqlQuery("select * from user where id=?", [log.uid])
 					if(sqlres.code < 0) throw sqlres.result
@@ -225,7 +225,7 @@ const scanGame = async()=>{
 						if(sqlres.code < 0) throw sqlres.result
 						if(sqlres.result.length == 0) throw new Error("no bindbox of this tokenId")
 						if(sqlres.result[0].times < config.times_game_rewardufd){
-							var web3 = new Web3(key.rpc)
+							var web3 = new Web3(key.rpc2)
 							var contract = new web3.eth.Contract(abi_box, config.addr_box721)
 							var owner = await contract.methods.ownerOf(user.bindBox).call()
 							if(owner.toLowerCase() == user.address.toLowerCase()){
