@@ -196,56 +196,51 @@ const getDay = (t)=>{
 	return Math.floor((new Date(t).getTime()/1000 - 25200)/86400)
 }
 
+const getTime = (t)=>{
+	return t*86400+25200
+}
+
 const scanGame = async()=>{
 	try{
-		var sqlres = await mysqlQuery("select * from scan where name=?", ['game'])
-		if(sqlres.code < 0) throw sqlres.result
-		if(sqlres.result.length < 0) throw new Error("no game scan record")
-		var fromTime = sqlres.result[0].scaned
-		sqlres = await mysqlQuery2("select max(updated_at) as updateTime from tbl_user_level_details", [])
-		if(sqlres.code < 0) throw sqlres.result
-		if(sqlres.result.length == 0) throw new Error("no game log")
-		var toTime = sqlres.result[0].updateTime
-		if(fromTime < toTime){
-			console.log(fromTime, '=>', toTime)
-			sqlres = await mysqlQuery2("select uid,count(*) as count,max(updated_at) as updated_at from tbl_user_level_details where updated_at>? and updated_at<=? group by uid", [fromTime, toTime])
-			if(sqlres.code <0) throw sqlres.result
-			var logs = sqlres.result
-			console.log('records',logs.length)
-			for(var i = 0; i < logs.length; i++){
-				var log = logs[i]
-				if(Number(log.count) < config.times_game_rewardperday) continue
-				try{
-					sqlres = await mysqlQuery("select * from user where id=?", [log.uid])
+		var now = new Date()
+		var day = getDay(now)
+		var fromTime = getTime(day)
+		var toTime = getTime(day+1)
+		var sqlres = await mysqlQuery2(`select uid,count(*) as count,max(updated_at) as updated_at from tbl_user_level_details where unix_timestamp(updated_at)>${fromTime} and unix_timestamp(updated_at)<=${toTime} group by uid`, [])
+		if(sqlres.code <0) throw sqlres.result
+		var logs = sqlres.result
+		console.log('records',logs.length,now)
+		for(var i = 0; i < logs.length; i++){
+			var log = logs[i]
+			if(Number(log.count) < config.times_game_rewardperday) continue
+			try{
+				sqlres = await mysqlQuery("select * from user where id=?", [log.uid])
+				if(sqlres.code < 0) throw sqlres.result
+				if(sqlres.result.length == 0) throw new Error("game uid not found in web")
+				var user = sqlres.result[0]
+				if(Web3.utils.isAddress(user.address) && user.bindBox != null && getDay(user.ufdUpdateTime) < getDay(log.updated_at)){
+					sqlres = await mysqlQuery("select * from bindbox where tokenId=?", [user.bindBox])
 					if(sqlres.code < 0) throw sqlres.result
-					if(sqlres.result.length == 0) throw new Error("game uid not found in web")
-					var user = sqlres.result[0]
-					if(Web3.utils.isAddress(user.address) && user.bindBox != null && getDay(user.ufdUpdateTime) < getDay(log.updated_at)){
-						sqlres = await mysqlQuery("select * from bindbox where tokenId=?", [user.bindBox])
-						if(sqlres.code < 0) throw sqlres.result
-						if(sqlres.result.length == 0) throw new Error("no bindbox of this tokenId")
-						if(sqlres.result[0].times < config.times_game_rewardufd){
-							var web3 = new Web3(key.rpc2)
-							var contract = new web3.eth.Contract(abi_box, config.addr_box721)
-							var owner = await contract.methods.ownerOf(user.bindBox).call()
-							if(owner.toLowerCase() == user.address.toLowerCase()){
-								sqlres = await mysqlQuery("update bindbox set times=times+1 where tokenId=?", user.bindBox)
-								if(sqlres.code < 0) console.error(sqlres.result)
-								sqlres = await mysqlQuery(`update user set ufdUpdateTime=?,rewardUFD=rewardUFD+${config.amount_game_rewardufd} where id=?`, [log.updated_at, user.id])
-								if(sqlres.code < 0) console.error(sqlres.result)
-								sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
-									[user.id,'ufd','gamelevel_player',config.amount_game_rewardufd])
-								if(sqlres.code < 0) console.error(sqlres.result)
-							}
+					if(sqlres.result.length == 0) throw new Error("no bindbox of this tokenId")
+					if(sqlres.result[0].times < config.times_game_rewardufd){
+						var web3 = new Web3(key.rpc2)
+						var contract = new web3.eth.Contract(abi_box, config.addr_box721)
+						var owner = await contract.methods.ownerOf(user.bindBox).call()
+						if(owner.toLowerCase() == user.address.toLowerCase()){
+							sqlres = await mysqlQuery("update bindbox set times=times+1 where tokenId=?", user.bindBox)
+							if(sqlres.code < 0) console.error(sqlres.result)
+							sqlres = await mysqlQuery(`update user set ufdUpdateTime=?,rewardUFD=rewardUFD+${config.amount_game_rewardufd} where id=?`, [log.updated_at, user.id])
+							if(sqlres.code < 0) console.error(sqlres.result)
+							sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
+								[user.id,'ufd','gamelevel_player',config.amount_game_rewardufd])
+							if(sqlres.code < 0) console.error(sqlres.result)
 						}
 					}
-				}catch(e){
-					console.error(e)
 				}
+			}catch(e){
+				console.error(e)
 			}
 		}
-		sqlres = await mysqlQuery("update scan set scaned=? where name=?", [toTime, 'game'])
-		if(sqlres.code < 0) console.error(sqlres.code)
 	}catch(e){
 		console.error(e)
 	}finally{
