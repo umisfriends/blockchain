@@ -193,7 +193,7 @@ const scanBlock = async()=>{
 }
 
 const getDay = (t)=>{
-	return Math.floor(new Date(t).getTime()/1000/86400)
+	return Math.floor((new Date(t).getTime()/1000 - 25200)/86400)
 }
 
 const scanGame = async()=>{
