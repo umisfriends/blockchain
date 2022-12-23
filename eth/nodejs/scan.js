@@ -87,7 +87,7 @@ const scanBlock = async()=>{
 						var team = sqlres.result[0]
 						sqlres = await mysqlQuery("update team set payhash=? where leader=?", [hash, leader])
 						if(sqlres.code <0) console.error(sqlres.result)
-						sqlres = await mysqlQuery("update user set team=? where address=?", [leader, leader])
+						sqlres = await mysqlQuery("update user set team=?,joinTime=now() where address=?", [leader, leader])
 						if(sqlres.code <0) console.error(sqlres.result)
 						if(Web3.utils.isAddress(team.inviter)){
 							var sAmount = uAmount(amount.times(config.percent_team_invite).div(100))
