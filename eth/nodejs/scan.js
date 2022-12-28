@@ -159,7 +159,7 @@ const scanBlock = async()=>{
 							}
 						}
 						if(user.p_ids != null && user.p_ids.length >= 8){
-							sqlres = await mysqlQuery("select * from user where id=?", [user.p_ids.substr(0,8)])
+							sqlres = await mysqlQuery("select * from user where id=?", [user.p_ids.substr(-8)])
 							if(sqlres.code < 0){
 								console.error(sqlres.result)
 							}else if(sqlres.result.length > 0){

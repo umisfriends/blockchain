@@ -484,7 +484,7 @@ app.get('/reward_record', async(req, res)=>{
 app.get('/user_list', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery("select * from user where left(p_ids,8)=?", [user.id])
+		var sqlres = await mysqlQuery("select * from user where right(p_ids,8)=?", [user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result})
 	}catch(e){
