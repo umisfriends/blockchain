@@ -135,13 +135,6 @@ const getUser = async(token) =>{
 	return sqlres.result[0]
 }
 
-const isTeamLeader = async(address)=>{
-	if(address == null) return true
-	var sqlres = await mysqlQuery("select * from team where leader=?", [address])
-	if(sqlres.code < 0) throw sqlres.result
-	return sqlres.result.length > 0
-}
-
 // param: name
 app.get("/team_name", async()=>{
 	try{
@@ -154,7 +147,7 @@ app.get("/team_name", async()=>{
   	}
 })
 
-// param: [logo(file/image)] name(string) description(string) email(string) inviter(address,option)
+// param: [logo(file/image)] name(string) description(string) email(string) inviter(uid,option)
 // header: x-token
 // app.post("/upload", upload.single("logo"), async (req, res) => {
 app.post("/upload", async (req, res) => {
@@ -164,13 +157,17 @@ app.post("/upload", async (req, res) => {
     var name = req.query.name
     var description = req.query.description
     var email = req.query.email
-    var inviter = (req.query.inviter == undefined || req.query.inviter == '') ? null : req.query.inviter
-    var isleader = await isTeamLeader(inviter)
     if(!Web3.utils.isAddress(user.address)) throw new Error("invalid user address")
-    if(!isleader) throw new Error("invalid inviter")
     var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
     if(sqlres.code < 0) throw sqlres.result
     if(sqlres.result.length == 0){
+    	var inviter = null
+    	if(req.query.inviter != undefined && req.query.inviter != ''){
+    		sqlres = await mysqlQuery("select * from team where uid=?", [req.query.inviter])
+    		if(sqlres.code < 0) throw sqlres.result
+    		if(sqlres.result.length == 0) throw new Error("inviter is not team leader")
+    		inviter = sqlres.result[0].leader
+    	}
     	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,createTime) values(?,?,?,?,?,?,?,now())`,
     		[user.address, user.id, name, logo, description, email, inviter])
 	}else{
