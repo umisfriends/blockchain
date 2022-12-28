@@ -267,6 +267,7 @@ app.post('/mintbox_sign', async(req, res)=>{
 		var user = await getUser(req.headers['x-token'])
 		var maxPermit = Number(req.query.maxPermit)
 		if(!Web3.utils.isAddress(user.address)) throw new Error("invalid address")
+		if(!Web3.utils.isAddress(user.team)) throw new Error("not join team")
 		var rewardUFD = Number(user.rewardUFD)
 		var rewardUFDBox = Number(user.rewardUFDBox)
 		var maxAmount = Math.floor(rewardUFD/config.amount_box_payufd)+rewardUFDBox
@@ -331,16 +332,16 @@ app.post('/claimbadge_sign', async(req, res)=>{
 })
 
 // header: x-token
-// param: leader
+// param: uid
 app.post('/team_join', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		var leader = req.query.leader
+		var uid = req.query.uid
 		if(user.team != null) throw new Error('already joined')
-		if(!Web3.utils.isAddress(leader)) throw new Error('invalid leader address')
-		var sqlres = await mysqlQuery("select * from team where leader=? and payhash is not null", [leader])
+		var sqlres = await mysqlQuery("select * from team where uid=? and payhash is not null", [uid])
 		if(sqlres.code < 0) throw sqlres.result
 		if(sqlres.result.length == 0) throw new Error('team not exists')
+		var leader = sqlres.result[0].leader
 		sqlres = await mysqlQuery('update user set team=?,joinTime=now() where id=?', [leader,user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:'OK'})
