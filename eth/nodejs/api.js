@@ -491,6 +491,36 @@ app.get('/user_list', async(req, res)=>{
 	}
 })
 
+// header: xtoken
+app.post("/reward_count", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select count(*) as count from reward_record where uid=? and token='ufd'", [user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result[0].count})
+  	}catch(e){
+    	console.error(e)
+    	res.send({success:false, result:e.toString()})
+  	}
+})
+
+// header: xtoken
+// param: pageSize pageNum
+app.post("/reward_list", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var pageSize = Number(req.query.pageSize)
+		var pageNum = Number(req.query.pageNum)
+		var pageStart = pageSize*pageNum
+		var sqlres = await mysqlQuery(`select * from reward_record where uid=? and token='ufd' order by id desc limit ${pageStart},${pageSize}`, [user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+  	}catch(e){
+    	console.error(e)
+    	res.send({success:false, result:e.toString()})
+  	}
+})
+
 app.listen('9000', ()=>{
 	console.log('listen:9000')
 })
