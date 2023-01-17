@@ -1,6 +1,7 @@
 const Web3 = require('web3')
 const BigNumber = require('bignumber.js')
 const mysql = require('mysql')
+const redis = require('redis')
 const config = require('./config')
 const jwt = require('jsonwebtoken')
 const key = require('./key')
@@ -9,8 +10,10 @@ const abi_box = require('./abi/Box721.json')
 const step = 99
 const topic_registry = '0xcc0bec1447060c88cdc5a739cf29cfa26c453574dd3f5b9e4dcc317d6401cb1c' //Register(address,address,uint256)
 const topic_mintbox = '0x5a3e96f397e68b20a43c25f664b628805b877334dadfcc925c6c1a3ad4340458' //Mint(uint256,address,uint256,uint256)
-const topics = [[topic_registry,topic_mintbox]]
-const address = [config.addr_registry,config.addr_offerbox]
+const topic_buystar = '0xa76261e4127b2ebc809716d704216602fdaee4ae5b72745ed9aec0d7bd73b75d' //Buy(address,uint256,address,uint256)
+const topics = [[topic_registry,topic_mintbox,topic_buystar]]
+const address = [config.addr_registry,config.addr_offerbox,config.addr_offerStar]
+const redisClient = redis.createClient(key.redis)
 
 const mysqlPool = mysql.createPool(key.mysql)
 const mysqlQuery = async(sql, values) => {
@@ -48,6 +51,19 @@ const mysqlQuery2 = async(sql, values) => {
             })
         })
     })
+}
+
+const rpush = async(k, v)=>{
+	return new Promise(resolve=>{
+		redisClient.rPush(k, v, (err)=>{
+			if(err){
+				console.error(err)
+				resolve(false)
+			}else{
+				resolve(true)
+			}
+		})
+	})
 }
 
 const uAmount = (a)=>{
@@ -181,6 +197,26 @@ const scanBlock = async()=>{
 						}
 					}
 				}
+			}else if(log.address.toLowerCase()==config.addr_offerStar && log.topics.length==2 && log.data.length==194 && log.topics[0]==topic_buystar){
+				var account = '0x'+log.topics[1].substr(26)
+				var quantity = new BigNumber(log.data.substr(0, 66))
+				var currency = '0x'+log.data.substr(90, 40)
+				var amount = new BigNumber('0x'+log.data.substr(130))
+				var hash = log.transactionHash
+				sqlres = await mysqlQuery("select * from buystar where hash=?", [hash])
+				if(sqlres.code < 0) throw sqlres.result
+				if(sqlres.result.length == 0){
+					sqlres = await mysqlQuery("insert into buystar(hash,account,quantity,currency,amount) values(?,?,?,?,?,?)",
+						[hash,account,quantity,currency,uAmount(amount)])
+					if(sqlres.code < 0) throw sqlres.result
+					sqlres = await mysqlQuery("select * from user where address=?", [account])
+					if(sqlres.code < 0){
+						console.error(sqlres.result)
+					}else if(sqlres.result.length > 0){
+						var msg = {id:hash, uid:Number(sqlres.result[0].id), card:quantity, time:Math.floor(new Date().getTime()/1000)}
+						await rpush(config.redisKey_buyStar, JSON.stringify(msg))
+					}
+				}
 			}
 		}
 		sqlres = await mysqlQuery("update scan set scaned=? where name=?", [toBlock,'block'])
@@ -248,5 +284,8 @@ const scanGame = async()=>{
 	}
 }
 
-scanBlock()
-scanGame()
+const run = async()=>{
+	await redisClient.connect()
+	scanBlock()
+	scanGame()
+}
