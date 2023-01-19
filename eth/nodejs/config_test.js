@@ -5,7 +5,7 @@ const config = {
 	addr_registry:"0xFdF75A1b4e8c2f17dd6Cc212Af967B0AF692d8f5".toLowerCase(),
 	addr_offerbadge:"0x8972Cdd4c96Ec3111d03b7050f2A3da842824e8a".toLowerCase(),
 	addr_offerbox:"0xa65875c660Ea959733A3d07385429fCAB854c408".toLowerCase(),
-	addr_offerStar:"0xb3bE82d78c38FdF2476EBD874Cdf65F286e6196F".toLowerCase(),
+	addr_offerStar:"0xD2Dc075b23f279C21AdAa9169d84941B3Da59ef3".toLowerCase(),
 	addr_box721:"0xa4735fA525482A41D156601d409808f784B33eD3".toLowerCase(),
 	addr_badge1155:"0xf6D916107293AB56d784FcA6a6B82D2D628C61A9".toLowerCase(),
 	addr_usdt:"0xdFe9bE18C7DBc409911750bD8253dA5a2Af5B8Bb".toLowerCase(),

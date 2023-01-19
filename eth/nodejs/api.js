@@ -197,6 +197,17 @@ app.post('/user', async(req, res)=>{
 	}
 })
 
+// header: x-token
+app.post('/gameuser', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		res.send({success:true, result:user})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
 const ethMsgHash = (msg)=>{
 	return Web3.utils.sha3(Web3.utils.encodePacked("\x19Ethereum Signed Message:\n", len(msg), msg))
 }

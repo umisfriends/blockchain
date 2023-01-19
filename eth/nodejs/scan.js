@@ -206,14 +206,14 @@ const scanBlock = async()=>{
 				sqlres = await mysqlQuery("select * from buystar where hash=?", [hash])
 				if(sqlres.code < 0) throw sqlres.result
 				if(sqlres.result.length == 0){
-					sqlres = await mysqlQuery("insert into buystar(hash,account,quantity,currency,amount) values(?,?,?,?,?,?)",
-						[hash,account,quantity,currency,uAmount(amount)])
+					sqlres = await mysqlQuery("insert into buystar(hash,account,quantity,currency,amount) values(?,?,?,?,?)",
+						[hash,account,quantity.toFixed(0),currency,uAmount(amount)])
 					if(sqlres.code < 0) throw sqlres.result
 					sqlres = await mysqlQuery("select * from user where address=?", [account])
 					if(sqlres.code < 0){
 						console.error(sqlres.result)
 					}else if(sqlres.result.length > 0){
-						var msg = {id:hash, uid:Number(sqlres.result[0].id), card:quantity, time:Math.floor(new Date().getTime()/1000)}
+						var msg = {id:hash, uid:Number(sqlres.result[0].id), card:Number(quantity.toFixed(0)), time:Math.floor(new Date().getTime()/1000)}
 						await rpush(config.redisKey_buyStar, JSON.stringify(msg))
 					}
 				}
@@ -289,3 +289,5 @@ const run = async()=>{
 	scanBlock()
 	scanGame()
 }
+
+run()
