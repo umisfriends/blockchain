@@ -135,6 +135,15 @@ const getUser = async(token) =>{
 	return sqlres.result[0]
 }
 
+const getGameUser = async(token) =>{
+	var account = await verifyToken(token)
+	if(Number(account.exp) < Math.ceil(new Date().getTime()/1000)) throw new Error("x-token timeout")
+	var sqlres = await mysqlQuery(`select * from tbl_userdata where id=?`, [account.ID])
+	if(sqlres.code < 0) throw sqlres.result
+	if(sqlres.result.length == 0) throw new Error("user not exists")
+	return sqlres.result[0]
+}
+
 // param: name
 app.get("/team_name", async()=>{
 	try{
@@ -200,7 +209,7 @@ app.post('/user', async(req, res)=>{
 // header: x-token
 app.post('/gameuser', async(req, res)=>{
 	try{
-		var user = await getUser(req.headers['x-token'])
+		var user = await getGameUser(req.headers['x-token'])
 		res.send({success:true, result:user})
 	}catch(e){
 		console.error(e)

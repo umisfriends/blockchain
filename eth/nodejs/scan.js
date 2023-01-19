@@ -13,7 +13,6 @@ const topic_mintbox = '0x5a3e96f397e68b20a43c25f664b628805b877334dadfcc925c6c1a3
 const topic_buystar = '0xa76261e4127b2ebc809716d704216602fdaee4ae5b72745ed9aec0d7bd73b75d' //Buy(address,uint256,address,uint256)
 const topics = [[topic_registry,topic_mintbox,topic_buystar]]
 const address = [config.addr_registry,config.addr_offerbox,config.addr_offerStar]
-const redisClient = redis.createClient(key.redis)
 
 const mysqlPool = mysql.createPool(key.mysql)
 const mysqlQuery = async(sql, values) => {
@@ -51,19 +50,6 @@ const mysqlQuery2 = async(sql, values) => {
             })
         })
     })
-}
-
-const rpush = async(k, v)=>{
-	return new Promise(resolve=>{
-		redisClient.rPush(k, v, (err)=>{
-			if(err){
-				console.error(err)
-				resolve(false)
-			}else{
-				resolve(true)
-			}
-		})
-	})
 }
 
 const uAmount = (a)=>{
@@ -214,7 +200,9 @@ const scanBlock = async()=>{
 						console.error(sqlres.result)
 					}else if(sqlres.result.length > 0){
 						var msg = {id:hash, uid:Number(sqlres.result[0].id), card:Number(quantity.toFixed(0)), time:Math.floor(new Date().getTime()/1000)}
-						await rpush(config.redisKey_buyStar, JSON.stringify(msg))
+						var redisClient = redis.createClient(key.redis)
+						await redisClient.connect()
+						await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
 					}
 				}
 			}
@@ -284,10 +272,5 @@ const scanGame = async()=>{
 	}
 }
 
-const run = async()=>{
-	await redisClient.connect()
-	scanBlock()
-	scanGame()
-}
-
-run()
+scanBlock()
+scanGame()
