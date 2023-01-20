@@ -203,6 +203,7 @@ const scanBlock = async()=>{
 						var redisClient = redis.createClient(key.redis)
 						await redisClient.connect()
 						await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
+						await redisClient.quit()
 					}
 				}
 			}

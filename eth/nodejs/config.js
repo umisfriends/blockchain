@@ -5,7 +5,7 @@ const config = {
 	addr_registry:"0x9Cb19e80C167f5b42C22FBc121027981906D1d8f".toLowerCase(),
 	addr_offerbadge:"0xEA5C0ddBc10468Fc01E19eEe9b28A5b1d09ffB4D".toLowerCase(),
 	addr_offerbox:"0x4f5A8F15b84ac903917fBF6f66195484057156Ab".toLowerCase(),
-	addr_offerStar:"".toLowerCase(),
+	addr_offerStar:"0xBCD7088d72d0AD61DdA3d67deA55AA89fBF825dC".toLowerCase(),
 	addr_box721:"0x92646d6206B5bBc6970baD0F2E0254C380208072".toLowerCase(),
 	addr_badge1155:"0x4B8b2D7e8EB66D41B73ac2fD7E06D26E923d8230".toLowerCase(),
 	addr_usdt:"0x55d398326f99059fF775485246999027B3197955".toLowerCase(),
@@ -25,5 +25,6 @@ const config = {
 	percent_box_team_inviter:10,
 	timeout_sign:300,
 	sign_prefix:"I am signing my one-time nonce:",
+	redisKey_buyStar:'umi_add_card',
 }
 module.exports = config
