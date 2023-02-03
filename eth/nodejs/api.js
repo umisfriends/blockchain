@@ -551,7 +551,7 @@ app.post("/treasure_open", async(req, res)=>{
 		}else if(treasure.name == 'star'){
 			usage = 'tx' + user.id + '_' + Math.floor(new Date().getTime()/1000)
 		}
-		sqlres = await mysqlQuery("insert into treasure(uid,name,quantity,cost,usage,create_time) values(?,?,?,?,?,now())",
+		sqlres = await mysqlQuery("insert into treasure(uid,name,quantity,cost,`usage`,create_time) values(?,?,?,?,?,now())",
 			[user.id, treasure.name, quantity, config.amount_treasure_open, usage])
 		if(sqlres.code < 0) console.error(sqlres.result)
 		if(treasure.name == 'star'){
