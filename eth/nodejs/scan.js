@@ -199,11 +199,24 @@ const scanBlock = async()=>{
 					if(sqlres.code < 0){
 						console.error(sqlres.result)
 					}else if(sqlres.result.length > 0){
-						var msg = {id:hash, uid:Number(sqlres.result[0].id), card:Number(quantity.toFixed(0)), time:Math.floor(new Date().getTime()/1000)}
+						var user = sqlres.result[0]
+						var msg = {id:hash, uid:Number(user.id), card:Number(quantity.toFixed(0)), time:Math.floor(new Date().getTime()/1000)}
 						var redisClient = redis.createClient(key.redis)
 						await redisClient.connect()
 						await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
 						await redisClient.quit()
+						var rewardQuantity = Number(quantity.times(config.percent_star_inviter).div(100).toFixed(0))
+						if(rewardQuantity > 0 && user.p_ids != null && user.p_ids.length >= 8){
+							var inviter = user.p_ids.substr(-8)
+							sqlres = mysqlQuery("insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())",
+									[inviter, 'star', 'buystar_inviter', rewardQuantity])
+							if(sqlres.code < 0) console.error(sqlres.result)
+							msg = {id:'r'+hash.substr(1), uid:Number(inviter), card:rewardQuantity, time:Math.floor(new Date().getTime()/1000)}
+							redisClient = redis.createClient(key.redis)
+							await redisClient.connect()
+							await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
+							await redisClient.quit()
+						}
 					}
 				}
 			}

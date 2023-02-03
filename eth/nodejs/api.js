@@ -521,6 +521,83 @@ app.post("/reward_list", async(req, res)=>{
   	}
 })
 
+app.post("/treasure_open", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery2(`select * from tbl_userdata where uid=?`, [user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length < 0) throw new Error("user not exists in game")
+		var prop_data = JSON.parse(sqlres.result[0].prop_data)
+		if(prop_data.sx < config.amount_treasure_open) throw new Error('sx not enough')
+		prop_data.sx = prop_data.sx - config.amount_treasure_open
+		sqlres = await mysqlQuery2("update tbl_userdata set prop_data=? where uid=?", [JSON.stringify(prop_data), user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		var r = Math.floor(Math.random() * 10000)
+		var i
+		var sum = 0
+		for(i = 0; i < key.treasures.length; i++){
+			sum = sum + treasures[i].rate
+			if(r < sum) break
+		}
+		var treasure = treasures[i]
+		var quantity = 1
+		if(treasure.name == 'IMG'){
+			quantity = Math.floor(Math.random() * (key.treausre_img_range[1] - key.treausre_img_range[0] + 1)) + config.treausre_img_range[0]
+		}
+		var usage = null
+		if(treasure.name == 'null'){
+			usage = 'default'
+		}else if(treasure.name == 'star'){
+			usage = 'tx' + user.id + '_' + Math.floor(new Date().getTime()/1000)
+		}
+		sqlres = await mysqlQuery("insert into treasure(uid,name,quantity,cost,usage,create_time) values(?,?,?,?,?,now())",
+			[user.id, treasure.name, quantity, config.amount_treasure_open, usage])
+		if(sqlres.code < 0) console.error(sqlres.result)
+		if(treasure.name == 'star'){
+			var msg = {id:usage, uid:user.id, card:quantity, time:Number(usage.split('_')[1])}
+			redisClient = redis.createClient(key.redis)
+			await redisClient.connect()
+			await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
+			await redisClient.quit()
+		}
+		res.send({success:true, result:{name:treasure.name, quantity}})
+  	}catch(e){
+    	console.error(e)
+    	res.send({success:false, result:e.toString()})
+  	}
+})
+
+// header: xtoken
+// param: name
+app.post("/treasure_count", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select count(*) as count from treasure where uid=? and name=?", [user.id, req.query.name])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result[0].count})
+  	}catch(e){
+    	console.error(e)
+    	res.send({success:false, result:e.toString()})
+  	}
+})
+
+// header: xtoken
+// param: pageSize pageNum name
+app.post("/treasure_list", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var pageSize = Number(req.query.pageSize)
+		var pageNum = Number(req.query.pageNum)
+		var pageStart = pageSize*pageNum
+		var sqlres = await mysqlQuery(`select * from treasure where uid=? and name=? limit ${pageStart},${pageSize}`, [user.id, req.query.name])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result})
+  	}catch(e){
+    	console.error(e)
+    	res.send({success:false, result:e.toString()})
+  	}
+})
+
 app.listen('9000', ()=>{
 	console.log('listen:9000')
 })
