@@ -537,10 +537,10 @@ app.post("/treasure_open", async(req, res)=>{
 		var i
 		var sum = 0
 		for(i = 0; i < key.treasures.length; i++){
-			sum = sum + treasures[i].rate
+			sum = sum + key.treasures[i].rate
 			if(r < sum) break
 		}
-		var treasure = treasures[i]
+		var treasure = key.treasures[i]
 		var quantity = 1
 		if(treasure.name == 'IMG'){
 			quantity = Math.floor(Math.random() * (key.treausre_img_range[1] - key.treausre_img_range[0] + 1)) + config.treausre_img_range[0]
