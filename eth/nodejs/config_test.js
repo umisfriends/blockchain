@@ -27,6 +27,6 @@ const config = {
 	sign_prefix:"I am signing my one-time nonce:",
 	redisKey_buyStar:'umi_add_card',
 	percent_star_inviter:20,
-	amount_treasure_open:2000000,
+	amount_treasure_open:1000000,
 }
 module.exports = config

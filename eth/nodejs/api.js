@@ -525,7 +525,10 @@ app.post("/reward_list", async(req, res)=>{
 app.post("/treasure_open", async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery2(`select * from tbl_userdata where uid=?`, [user.id])
+		var sqlres = await mysqlQuery("select * from buystar where account=?", [user.address])
+		if(sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length == 0) throw new Error("only for star buyer")
+		sqlres = await mysqlQuery2(`select * from tbl_userdata where uid=?`, [user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		if(sqlres.result.length < 0) throw new Error("user not exists in game")
 		var prop_data = JSON.parse(sqlres.result[0].prop_data)
@@ -543,7 +546,7 @@ app.post("/treasure_open", async(req, res)=>{
 		var treasure = key.treasures[i]
 		var quantity = 1
 		if(treasure.name == 'IMG'){
-			quantity = Math.floor(Math.random() * (key.treausre_img_range[1] - key.treausre_img_range[0] + 1)) + config.treausre_img_range[0]
+			quantity = Math.floor(Math.random() * (key.treausre_img_range[1] - key.treausre_img_range[0] + 1)) + key.treausre_img_range[0]
 		}
 		var usage = null
 		if(treasure.name == 'null'){
