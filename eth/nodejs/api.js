@@ -602,6 +602,19 @@ app.post("/treasure_list", async(req, res)=>{
   	}
 })
 
+// header: xtoken
+app.post("/is_star_buyer", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select * from buystar where account=?", [user.address])
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result.length > 0})
+  	}catch(e){
+    	console.error(e)
+    	res.send({success:false, result:e.toString()})
+  	}
+})
+
 app.listen('9000', ()=>{
 	console.log('listen:9000')
 })
