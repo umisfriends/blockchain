@@ -113,6 +113,9 @@ const scanBlock = async()=>{
 				var boxAmount = new BigNumber(log.data.substr(0, 66)).toFixed(0)
 				var costAmount = new BigNumber('0x'+log.data.substr(66))
 				var hash = log.transactionHash
+				//sqlres = await mysqlQuery("select count(*) as count from mintbox where account=?", to)
+				//if(sqlres.code < 0) throw sqlres.result
+				//var firstMint = sqlres.result[0].count == 0
 				sqlres = await mysqlQuery("select * from mintbox where hash=?", [hash])
 				if(sqlres.code < 0) throw sqlres.result
 				if(sqlres.result.length == 0){
@@ -179,6 +182,16 @@ const scanBlock = async()=>{
 										if(sqlres.code < 0) console.error(sqlres.result)
 									}
 								}
+								/*if(firstMint){
+									sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())`,
+										[inviter.id,'star','firstmintbox_inviter', config.amount_star_boxinviter])
+									if(sqlres.code < 0) console.error(sqlres.result)
+									msg = {id:'b'+hash.substr(1), uid:Number(inviter.id), card:config.amount_star_boxinviter, time:Math.floor(new Date().getTime()/1000)}
+									redisClient = redis.createClient(key.redis)
+									await redisClient.connect()
+									await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
+									await redisClient.quit()
+								}*/
 							}
 						}
 					}
@@ -286,5 +299,6 @@ const scanGame = async()=>{
 	}
 }
 
-scanBlock()
-scanGame()
+//scanBlock()
+//scanGame()
+module.exports = {scanBlock, scanGame}
