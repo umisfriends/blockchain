@@ -29,5 +29,8 @@ const config = {
 	percent_star_inviter:20,
 	amount_treasure_open:1000000,
 	amount_star_boxinviter:10,
+	percent_buystar_prizepool:15,
+	percent_buystar_teamleader:25,
+	amount_base_prizepool:100000,
 }
 module.exports = config

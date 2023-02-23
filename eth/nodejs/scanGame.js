@@ -1,3 +1,3 @@
 const scan = require('./scan.js')
 
-scanGame()
+scan.scanGame2()

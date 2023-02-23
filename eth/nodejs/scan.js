@@ -4,6 +4,7 @@ const mysql = require('mysql')
 const redis = require('redis')
 const config = require('./config')
 const jwt = require('jsonwebtoken')
+const moment = require('moment')
 const key = require('./key')
 const abi_box = require('./abi/Box721.json')
 
@@ -72,7 +73,7 @@ const scanBlock = async()=>{
 		console.log('logs',logs.length)
 		for(var i = 0; i < logs.length; i++){
 			var log = logs[i]
-			if(log.address.toLowerCase()==config.addr_registry && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_registry){
+			if(false && log.address.toLowerCase()==config.addr_registry && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_registry){
 				var leader = '0x'+log.topics[1].substr(26)
 				var token = '0x'+log.data.substr(26,40)
 				var amount = new BigNumber('0x'+log.data.substr(66))
@@ -230,6 +231,25 @@ const scanBlock = async()=>{
 							await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
 							await redisClient.quit()
 						}
+						var rAmount = uAmount(amount.times(config.percent_buystar_prizepool).div(100))
+						sqlres = await mysqlQuery("insert into prizepool(hash,uid,amount,createTime) values(?,?,?,now())", [hash,user.id,rAmount])
+						if(sqlres.code < 0) console.error(sqlres.result)
+						if(Web3.utils.isAddress(user.team)){
+							sqlres = await mysqlQuery("select * from user where id=(select uid from team where leader=?)", [user.team])
+							if(sqlres.code < 0){
+								console.error(sqlres.result)
+							}else if(sqlres.result.length > 0){
+								var leader = sqlres.result[0]
+								if(leader.id != user.id){
+									rAmount = uAmount(amount.times(config.percent_buystar_teamleader).div(100))
+									sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${rAmount} where id=?`, [leader.id])
+									if(sqlres.code < 0) console.error(sqlres.result)
+									sqlres = await mysqlQuery('insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())',
+										[leader.id, 'usdt', 'buystar_teamLeader', rAmount])
+									if(sqlres.code < 0) console.error(sqlres.result)
+								}
+							}
+						}
 					}
 				}
 			}
@@ -244,11 +264,24 @@ const scanBlock = async()=>{
 }
 
 const getDay = (t)=>{
-	return Math.floor((new Date(t).getTime()/1000 - 25200)/86400)
+	//return Math.floor((new Date(t).getTime()/1000 - key.time_diff)/86400)
+	return Math.floor((new Date(t).getTime()/1000 + key.time_diff)/86400)
 }
 
 const getTime = (t)=>{
-	return t*86400+25200
+	return t*86400+key.time_diff
+}
+
+const tokenOwner = async(tokenId)=>{
+	var owner = ''
+	try{
+		var web3 = new Web3(key.rpc2)
+		var contract = new web3.eth.Contract(abi_box, config.addr_box721)
+		owner = await contract.methods.ownerOf(tokenId).call()
+	}catch(e){
+		console.error(e)
+	}
+	return owner
 }
 
 const scanGame = async()=>{
@@ -274,10 +307,8 @@ const scanGame = async()=>{
 					if(sqlres.code < 0) throw sqlres.result
 					if(sqlres.result.length == 0) throw new Error("no bindbox of this tokenId")
 					if(sqlres.result[0].times < config.times_game_rewardufd){
-						var web3 = new Web3(key.rpc2)
-						var contract = new web3.eth.Contract(abi_box, config.addr_box721)
-						var owner = await contract.methods.ownerOf(user.bindBox).call()
-						if(owner.toLowerCase() == user.address.toLowerCase()){
+						var owner = await tokenOwner(user.bindBox)
+						if(owner != '' && owner.toLowerCase() == user.address.toLowerCase()){
 							sqlres = await mysqlQuery("update bindbox set times=times+1 where tokenId=?", user.bindBox)
 							if(sqlres.code < 0) console.error(sqlres.result)
 							sqlres = await mysqlQuery(`update user set ufdUpdateTime=?,rewardUFD=rewardUFD+${config.amount_game_rewardufd} where id=?`, [log.updated_at, user.id])
@@ -295,10 +326,57 @@ const scanGame = async()=>{
 	}catch(e){
 		console.error(e)
 	}finally{
-		setTimeout(scanGame, 30000)
+		setTimeout(scanGame, 60000)
+	}
+}
+
+const scanGame2 = async()=>{
+	try{
+		var now = moment()
+		var fromTime = now.format("YYYY-MM-DD")
+		var toTime = now.add(1, "days").format("YYYY-MM-DD")
+		console.log(fromTime, toTime, typeof fromTime)
+		var sql = `select uid,count(*) as count,max(updated_at) as updated_at from tbl_user_level_details where updated_at>=? and updated_at<? group by uid`
+		var sqlres = await mysqlQuery2(sql, [fromTime, toTime])
+		if(sqlres.code <0) throw sqlres.result
+		var logs = sqlres.result
+		console.log('rewards', logs.length)
+		for(var i = 0; i < logs.length; i++){
+			var log = logs[i]
+			if(Number(log.count) < config.times_game_rewardperday) continue
+			try{
+				sqlres = await mysqlQuery("select * from user where id=?", [log.uid])
+				if(sqlres.code < 0) throw sqlres.result
+				if(sqlres.result.length == 0) throw new Error("game uid not found in web")
+				var user = sqlres.result[0]
+				if(Web3.utils.isAddress(user.address) && user.bindBox != null && getDay(user.ufdUpdateTime) < getDay(log.updated_at)){
+					sqlres = await mysqlQuery("select * from bindbox where tokenId=?", [user.bindBox])
+					if(sqlres.code < 0) throw sqlres.result
+					if(sqlres.result.length == 0) throw new Error("no bindbox of this tokenId")
+					if(sqlres.result[0].times < config.times_game_rewardufd){
+						var owner = await tokenOwner(user.bindBox)
+						if(owner != '' && owner.toLowerCase() == user.address.toLowerCase()){
+							sqlres = await mysqlQuery("update bindbox set times=times+1 where tokenId=?", user.bindBox)
+							if(sqlres.code < 0) console.error(sqlres.result)
+							sqlres = await mysqlQuery(`update user set ufdUpdateTime=?,rewardUFD=rewardUFD+${config.amount_game_rewardufd} where id=?`, [log.updated_at, user.id])
+							if(sqlres.code < 0) console.error(sqlres.result)
+							sqlres = await mysqlQuery(`insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,?)`,
+								[user.id,'ufd','gamelevel_player',config.amount_game_rewardufd,log.updated_at])
+							if(sqlres.code < 0) console.error(sqlres.result)
+						}
+					}
+				}
+			}catch(e){
+				console.error(e)
+			}
+		}
+	}catch(e){
+		console.error(e)
+	}finally{
+		setTimeout(scanGame2, 60000)
 	}
 }
 
 //scanBlock()
 //scanGame()
-module.exports = {scanBlock, scanGame}
+module.exports = {scanBlock, scanGame, scanGame2}
