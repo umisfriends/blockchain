@@ -32,5 +32,7 @@ const config = {
 	percent_buystar_prizepool:15,
 	percent_buystar_teamleader:25,
 	amount_base_prizepool:100000,
+	redisKey_prizepool:'umi_prizepool',
+	interval_refresh_prizepool:6*3600*1000,
 }
 module.exports = config

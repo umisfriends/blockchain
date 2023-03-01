@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken')
 const moment = require('moment')
 const key = require('./key')
 const abi_box = require('./abi/Box721.json')
+const fs = require('fs')
 
 const step = 99
 const topic_registry = '0xcc0bec1447060c88cdc5a739cf29cfa26c453574dd3f5b9e4dcc317d6401cb1c' //Register(address,address,uint256)
@@ -377,6 +378,30 @@ const scanGame2 = async()=>{
 	}
 }
 
+const scanLevel = async()=>{
+	try{
+		var maxLevel = 0
+		console.log(`${key.path_levels}/${maxLevel+1}.json`)
+		while(fs.existsSync(`${key.path_levels}/${maxLevel+1}.json`)) maxLevel++
+		var sqlres = await mysqlQuery2("select count(*) as count from tbl_userdata where level>=?", [maxLevel])
+		if(sqlres.code < 0) throw sqlres.result
+		var passedUser = Number(sqlres.result[0].count)
+		sqlres = await mysqlQuery("select sum(amount) as sum from prizepool",[])
+		if(sqlres.code < 0) throw sqlres.result
+		var prizeAmount = config.amount_base_prizepool + Number(sqlres.result[0].sum)
+		var data = JSON.stringify({maxLevel, passedUser, prizeAmount})
+		redisClient = redis.createClient(key.redis)
+		await redisClient.connect()
+		await redisClient.set(config.redisKey_prizepool, data)
+		await redisClient.quit()
+		console.log('prizepool', data, new Date())
+	}catch(e){
+		console.error(e)
+	}finally{
+		setTimeout(scanLevel, config.interval_refresh_prizepool)
+	}
+}
+
 //scanBlock()
 //scanGame()
-module.exports = {scanBlock, scanGame, scanGame2}
+module.exports = {scanBlock, scanGame, scanGame2, scanLevel}

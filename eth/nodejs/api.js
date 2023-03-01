@@ -617,11 +617,11 @@ app.post("/is_star_buyer", async(req, res)=>{
 
 app.get("/prizepool", async(req, res)=>{
 	try{
-		var sqlres = await mysqlQuery("select sum(amount) as sum from prizepool",[])
-		if(sqlres.code < 0) throw sqlres.result
-		var buystar = sqlres.result[0].sum
-		if(buystar == null) buystar = 0
-		res.send({success:true, result:{base:config.amount_base_prizepool, buystar}})
+		var redisClient = redis.createClient(key.redis)
+		await redisClient.connect()
+		var data = await redisClient.get(config.redisKey_prizepool)
+		await redisClient.quit()
+		res.send({success:true, result:JSON.parse(data)})
   	}catch(e){
     	console.error(e)
     	res.send({success:false, result:e.toString()})
