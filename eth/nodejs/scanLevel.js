@@ -1,3 +1,3 @@
 const scan = require('./scan.js')
 
-scan.scanLevel()
+scan.scanLevel2()

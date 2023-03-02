@@ -402,6 +402,29 @@ const scanLevel = async()=>{
 	}
 }
 
+const scanLevel2 = async()=>{
+	try{
+		var redisClient = redis.createClient(key.redis)
+		await redisClient.connect()
+		var _maxLevel = await redisClient.get('umi_maxlevels')
+		var maxLevel = Number(_maxLevel)
+		var sqlres = await mysqlQuery2("select count(*) as count from tbl_userdata where level>=?", [maxLevel])
+		if(sqlres.code < 0) throw sqlres.result
+		var passedUser = Number(sqlres.result[0].count)
+		sqlres = await mysqlQuery("select sum(amount) as sum from prizepool",[])
+		if(sqlres.code < 0) throw sqlres.result
+		var prizeAmount = config.amount_base_prizepool + Number(sqlres.result[0].sum)
+		var data = JSON.stringify({maxLevel, passedUser, prizeAmount})
+		await redisClient.set(config.redisKey_prizepool, data)
+		await redisClient.quit()
+		console.log('prizepool', data, new Date())
+	}catch(e){
+		console.error(e)
+	}finally{
+		setTimeout(scanLevel2, config.interval_refresh_prizepool)
+	}
+}
+
 //scanBlock()
 //scanGame()
-module.exports = {scanBlock, scanGame, scanGame2, scanLevel}
+module.exports = {scanBlock, scanGame, scanGame2, scanLevel, scanLevel2}
