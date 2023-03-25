@@ -408,9 +408,12 @@ const scanLevel2 = async()=>{
 		await redisClient.connect()
 		var _maxLevel = await redisClient.get('umi_maxlevels')
 		var maxLevel = Number(_maxLevel)
+		var extra = Number(fs.readFileSync('extra_pass.txt').toString())
+		extra = extra+2+Math.floor(Math.random()*2)
+		fs.writeFileSync('extra_pass.txt', ''+extra)
 		var sqlres = await mysqlQuery2("select count(*) as count from tbl_userdata where level>=?", [maxLevel])
 		if(sqlres.code < 0) throw sqlres.result
-		var passedUser = Number(sqlres.result[0].count)
+		var passedUser = extra+Number(sqlres.result[0].count)
 		sqlres = await mysqlQuery("select sum(amount) as sum from prizepool",[])
 		if(sqlres.code < 0) throw sqlres.result
 		var prizeAmount = config.amount_base_prizepool + Number(sqlres.result[0].sum)

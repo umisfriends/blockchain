@@ -27,7 +27,7 @@ const config = {
 	sign_prefix:"I am signing my one-time nonce:",
 	redisKey_buyStar:'umi_add_card',
 	percent_star_inviter:20,
-	amount_treasure_open:1000000,
+	amount_treasure_open:3000000,
 	amount_star_boxinviter:10,
 	percent_buystar_prizepool:15,
 	percent_buystar_teamleader:25,
