@@ -34,5 +34,8 @@ const config = {
 	amount_base_prizepool:100000,
 	redisKey_prizepool:'umi_prizepool',
 	interval_refresh_prizepool:300*1000,
+	addr_offerbox2:'0xB23e7fF4fEB1F742e1a0863417E1833466de4A65'.toLowerCase(),
+	addr_offerbadge2:"0xeb630433672Cf3C81d1cF4940786D3a04F40AF9B".toLowerCase(),
+	amount_box_buy3usdt:600,
 }
 module.exports = config

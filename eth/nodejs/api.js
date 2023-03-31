@@ -148,10 +148,49 @@ app.get("/team_name", async()=>{
   	}
 })
 
+// // param: [logo(file/image)] name(string) description(string) email(string) inviter(uid,option)
+// // header: x-token
+// // app.post("/upload", upload.single("logo"), async (req, res) => {
+// app.post("/upload", async (req, res) => {
+//   try {
+//     var user = await getUser(req.headers['x-token'])
+//     var logo = null //req.file.filename
+//     var name = req.query.name
+//     var description = req.query.description
+//     var email = req.query.email
+//     if(!Web3.utils.isAddress(user.address)) throw new Error("invalid user address")
+//     var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
+//     if(sqlres.code < 0) throw sqlres.result
+//     if(sqlres.result.length == 0){
+//     	var inviter = null
+//     	if(req.query.inviter != undefined && req.query.inviter != ''){
+//     		sqlres = await mysqlQuery("select * from team where uid=?", [req.query.inviter])
+//     		if(sqlres.code < 0) throw sqlres.result
+//     		if(sqlres.result.length == 0) throw new Error("inviter is not team leader")
+//     		inviter = sqlres.result[0].leader
+//     	}
+//     	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,createTime) values(?,?,?,?,?,?,?,now())`,
+//     		[user.address, user.id, name, logo, description, email, inviter])
+// 	}else{
+// 		sqlres = await mysqlQuery('update team set name=?,logo=?,description=?,email=? where leader=?', [name, logo, description, email, user.address])
+// 	}
+//     if (sqlres.code < 0) throw sqlres.result
+//     var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
+//     var data = Web3.utils.encodePacked(config.chainid, config.addr_registry, "register", user.address, deadline)
+//     const hash = Web3.utils.sha3(data)
+//     const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+// 	const result = {address:user.address,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+//     res.send({ success: true, result})
+//   } catch (e) {
+//     console.error(e)
+//     res.send({ success: false, result: e.toString() })
+//   }
+// })
+
 // param: [logo(file/image)] name(string) description(string) email(string) inviter(uid,option)
 // header: x-token
 // app.post("/upload", upload.single("logo"), async (req, res) => {
-app.post("/upload", async (req, res) => {
+app.post("/upload2", async (req, res) => {
   try {
     var user = await getUser(req.headers['x-token'])
     var logo = null //req.file.filename
@@ -159,7 +198,11 @@ app.post("/upload", async (req, res) => {
     var description = req.query.description
     var email = req.query.email
     if(!Web3.utils.isAddress(user.address)) throw new Error("invalid user address")
-    var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
+    var sqlres = await mysqlQuery('select sum(quantity) as quantity from mintbadge where minter=?', [user.address])
+	if(sqlres.code < 0) throw sqlres.result
+	var quantity = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].quantity)
+	if(quantity == 0) throw new Error("not mint badge")
+    sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
     if(sqlres.code < 0) throw sqlres.result
     if(sqlres.result.length == 0){
     	var inviter = null
@@ -167,24 +210,36 @@ app.post("/upload", async (req, res) => {
     		sqlres = await mysqlQuery("select * from team where uid=?", [req.query.inviter])
     		if(sqlres.code < 0) throw sqlres.result
     		if(sqlres.result.length == 0) throw new Error("inviter is not team leader")
+    		if(Number(sqlres.result[0].type) != 0) throw new Error("not genesis team")
     		inviter = sqlres.result[0].leader
     	}
-    	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,createTime) values(?,?,?,?,?,?,?,now())`,
-    		[user.address, user.id, name, logo, description, email, inviter])
+    	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,payhash,type,createTime) values(?,?,?,?,?,?,?,?,?,now())`,
+    		[user.address, user.id, name, logo, description, email, inviter,'standard_'+user.address, 1])
+    	if(sqlres.code < 0) throw sqlres.result
+    	sqlres = await mysqlQuery("update user set team=?, joinTime=now() where id=?", [user.address, user.id])
 	}else{
 		sqlres = await mysqlQuery('update team set name=?,logo=?,description=?,email=? where leader=?', [name, logo, description, email, user.address])
 	}
     if (sqlres.code < 0) throw sqlres.result
-    var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
-    var data = Web3.utils.encodePacked(config.chainid, config.addr_registry, "register", user.address, deadline)
-    const hash = Web3.utils.sha3(data)
-    const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
-	const result = {address:user.address,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
-    res.send({ success: true, result})
+    res.send({ success: true, result:'OK'})
   } catch (e) {
     console.error(e)
     res.send({ success: false, result: e.toString() })
   }
+})
+
+// header: x-token
+app.post('/mybadges', async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select sum(quantity) as quantity from mintbadge where minter=?", user.address)
+		if(sqlres.code < 0) throw sqlres.result
+		var quantity = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].quantity)
+		res.send({success:true, result:quantity})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
 })
 
 // header: x-token
@@ -260,29 +315,49 @@ app.post('/bindbox', async(req, res)=>{
 
 // header: x-token
 // param: maxPermit
-app.post('/mintbox_sign', async(req, res)=>{
+// app.post('/mintbox_sign', async(req, res)=>{
+// 	try{
+// 		var user = await getUser(req.headers['x-token'])
+// 		var maxPermit = Number(req.query.maxPermit)
+// 		if(!Web3.utils.isAddress(user.address)) throw new Error("invalid address")
+// 		if(!Web3.utils.isAddress(user.team)) throw new Error("not join team")
+// 		var rewardUFD = Number(user.rewardUFD)
+// 		var rewardUFDBox = Number(user.rewardUFDBox)
+// 		var maxAmount = Math.floor(rewardUFD/config.amount_box_payufd)+rewardUFDBox
+// 		if(maxAmount < maxPermit) throw new Error("not enough ufdbox to mint")
+// 		if(maxPermit < rewardUFDBox){
+// 			maxPermit = rewardUFDBox
+// 		}else if(maxPermit > rewardUFDBox){
+// 			var newbox = maxPermit - rewardUFDBox
+// 			var newUFD = newbox*config.amount_box_payufd
+// 			var sqlres = await mysqlQuery(`update user set rewardUFD=rewardUFD-${newUFD}, rewardUFDBox=rewardUFDBox+${newbox} where id=?`, [user.id])
+// 			if(sqlres.code < 0) throw sqlres.result
+// 		}
+// 		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
+//     	var data = Web3.utils.encodePacked(config.chainid, config.addr_offerbox, "mint", 0, user.address, maxPermit, deadline)
+//     	const hash = Web3.utils.sha3(data)
+//     	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+// 		const result = {round:0,address:user.address,maxPermit,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+// 		res.send({success:true, result})
+// 	}catch(e){
+// 		console.error(e)
+// 		res.send({success:false, result:e.toString()})
+// 	}
+// })
+
+// header: x-token
+// param: amount
+app.post('/mintbox2_sign', async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		var maxPermit = Number(req.query.maxPermit)
+		var amount = Number(req.query.amount)
 		if(!Web3.utils.isAddress(user.address)) throw new Error("invalid address")
 		if(!Web3.utils.isAddress(user.team)) throw new Error("not join team")
-		var rewardUFD = Number(user.rewardUFD)
-		var rewardUFDBox = Number(user.rewardUFDBox)
-		var maxAmount = Math.floor(rewardUFD/config.amount_box_payufd)+rewardUFDBox
-		if(maxAmount < maxPermit) throw new Error("not enough ufdbox to mint")
-		if(maxPermit < rewardUFDBox){
-			maxPermit = rewardUFDBox
-		}else if(maxPermit > rewardUFDBox){
-			var newbox = maxPermit - rewardUFDBox
-			var newUFD = newbox*config.amount_box_payufd
-			var sqlres = await mysqlQuery(`update user set rewardUFD=rewardUFD-${newUFD}, rewardUFDBox=rewardUFDBox+${newbox} where id=?`, [user.id])
-			if(sqlres.code < 0) throw sqlres.result
-		}
 		var deadline = Math.ceil(new Date().getTime()/1000) + config.timeout_sign
-    	var data = Web3.utils.encodePacked(config.chainid, config.addr_offerbox, "mint", 0, user.address, maxPermit, deadline)
+    	var data = Web3.utils.encodePacked(config.chainid, config.addr_offerbox2, "mint", user.address, amount, deadline)
     	const hash = Web3.utils.sha3(data)
     	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
-		const result = {round:0,address:user.address,maxPermit,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		const result = {address:user.address,amount,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
 		res.send({success:true, result})
 	}catch(e){
 		console.error(e)
@@ -373,7 +448,7 @@ app.post('/team_members', async(req, res)=>{
 		for(var i = 0; i < result.length; i++){
 			var r = result[i]
 			if(Web3.utils.isAddress(r.address)){
-				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and costAmount/boxAmount>${config.amount_box_buyusdt}-0.01`, [r.address])
+				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and costAmount/boxAmount>${config.amount_box_buy3usdt}-0.01`, [r.address])
 				if(sqlres.code < 0) throw sqlres.result
 				r.buybox = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].sum)
 				sqlres = await mysqlQuery(`select sum(boxAmount) as sum from mintbox where account=? and costAmount/boxAmount<${config.amount_box_buy2usdt}+0.01`, [r.address])
@@ -403,7 +478,7 @@ app.post('/team_myjoin', async(req, res)=>{
 		if(sqlres.code < 0) throw sqlres.result
 		result.memberNum = sqlres.result.length == 0 ? 0 : sqlres.result[0].count
 		sqlres = await mysqlQuery(
-			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and m.costAmount/m.boxAmount>${config.amount_box_buyusdt}-0.01  where u.team=?`,
+			`select sum(boxAmount) as sum from mintbox as m left join user as u on m.account=u.address and m.costAmount/m.boxAmount>${config.amount_box_buy3usdt}-0.01  where u.team=?`,
 			[user.address])
 		if(sqlres.code < 0) throw sqlres.result
 		result.buybox = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].sum)
@@ -522,54 +597,54 @@ app.post("/reward_list", async(req, res)=>{
   	}
 })
 
-app.post("/treasure_open", async(req, res)=>{
-	try{
-		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery("select * from buystar where account=?", [user.address])
-		if(sqlres.code < 0) throw sqlres.result
-		if(sqlres.result.length == 0) throw new Error("only for star buyer")
-		sqlres = await mysqlQuery2(`select * from tbl_userdata where uid=?`, [user.id])
-		if(sqlres.code < 0) throw sqlres.result
-		if(sqlres.result.length < 0) throw new Error("user not exists in game")
-		var prop_data = JSON.parse(sqlres.result[0].prop_data)
-		if(prop_data.sx < config.amount_treasure_open) throw new Error('sx not enough')
-		prop_data.sx = prop_data.sx - config.amount_treasure_open
-		sqlres = await mysqlQuery2("update tbl_userdata set prop_data=? where uid=?", [JSON.stringify(prop_data), user.id])
-		if(sqlres.code < 0) throw sqlres.result
-		var r = Math.floor(Math.random() * 10000)
-		var i
-		var sum = 0
-		for(i = 0; i < key.treasures.length; i++){
-			sum = sum + key.treasures[i].rate
-			if(r < sum) break
-		}
-		var treasure = key.treasures[i]
-		var quantity = 1
-		if(treasure.name == 'IMG'){
-			quantity = Math.floor(Math.random() * (key.treausre_img_range[1] - key.treausre_img_range[0] + 1)) + key.treausre_img_range[0]
-		}
-		var usage = null
-		if(treasure.name == 'null'){
-			usage = 'default'
-		}else if(treasure.name == 'star'){
-			usage = 'tx' + user.id + '_' + Math.floor(new Date().getTime()/1000)
-		}
-		sqlres = await mysqlQuery("insert into treasure(uid,name,quantity,cost,`usage`,create_time) values(?,?,?,?,?,now())",
-			[user.id, treasure.name, quantity, config.amount_treasure_open, usage])
-		if(sqlres.code < 0) console.error(sqlres.result)
-		if(treasure.name == 'star'){
-			var msg = {id:usage, uid:user.id, card:quantity, time:Number(usage.split('_')[1])}
-			redisClient = redis.createClient(key.redis)
-			await redisClient.connect()
-			await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
-			await redisClient.quit()
-		}
-		res.send({success:true, result:{name:treasure.name, quantity}})
-  	}catch(e){
-    	console.error(e)
-    	res.send({success:false, result:e.toString()})
-  	}
-})
+// app.post("/treasure_open", async(req, res)=>{
+// 	try{
+// 		var user = await getUser(req.headers['x-token'])
+// 		var sqlres = await mysqlQuery("select * from buystar where account=?", [user.address])
+// 		if(sqlres.code < 0) throw sqlres.result
+// 		if(sqlres.result.length == 0) throw new Error("only for star buyer")
+// 		sqlres = await mysqlQuery2(`select * from tbl_userdata where uid=?`, [user.id])
+// 		if(sqlres.code < 0) throw sqlres.result
+// 		if(sqlres.result.length < 0) throw new Error("user not exists in game")
+// 		var prop_data = JSON.parse(sqlres.result[0].prop_data)
+// 		if(prop_data.sx < config.amount_treasure_open) throw new Error('sx not enough')
+// 		prop_data.sx = prop_data.sx - config.amount_treasure_open
+// 		sqlres = await mysqlQuery2("update tbl_userdata set prop_data=? where uid=?", [JSON.stringify(prop_data), user.id])
+// 		if(sqlres.code < 0) throw sqlres.result
+// 		var r = Math.floor(Math.random() * 10000)
+// 		var i
+// 		var sum = 0
+// 		for(i = 0; i < key.treasures.length; i++){
+// 			sum = sum + key.treasures[i].rate
+// 			if(r < sum) break
+// 		}
+// 		var treasure = key.treasures[i]
+// 		var quantity = 1
+// 		if(treasure.name == 'IMG'){
+// 			quantity = Math.floor(Math.random() * (key.treausre_img_range[1] - key.treausre_img_range[0] + 1)) + key.treausre_img_range[0]
+// 		}
+// 		var usage = null
+// 		if(treasure.name == 'null'){
+// 			usage = 'default'
+// 		}else if(treasure.name == 'star'){
+// 			usage = 'tx' + user.id + '_' + Math.floor(new Date().getTime()/1000)
+// 		}
+// 		sqlres = await mysqlQuery("insert into treasure(uid,name,quantity,cost,`usage`,create_time) values(?,?,?,?,?,now())",
+// 			[user.id, treasure.name, quantity, config.amount_treasure_open, usage])
+// 		if(sqlres.code < 0) console.error(sqlres.result)
+// 		if(treasure.name == 'star'){
+// 			var msg = {id:usage, uid:user.id, card:quantity, time:Number(usage.split('_')[1])}
+// 			redisClient = redis.createClient(key.redis)
+// 			await redisClient.connect()
+// 			await redisClient.rPush(config.redisKey_buyStar, JSON.stringify(msg))
+// 			await redisClient.quit()
+// 		}
+// 		res.send({success:true, result:{name:treasure.name, quantity}})
+//   	}catch(e){
+//     	console.error(e)
+//     	res.send({success:false, result:e.toString()})
+//   	}
+// })
 
 // header: xtoken
 // param: name

@@ -35,10 +35,11 @@ contract OfferBadge is Ownable{
         feeTo = _feeTo;
     }
 
-    function mint(uint256 amount) external onlyOwner{
+    function mint(uint256 amount) external{
         uint256 currencyAmount = amount * info.price;
         IERC20(info.currency).transferFrom(msg.sender, feeTo == address(0) ? address(this) : feeTo, currencyAmount);
         I1155(info.badge).mint(msg.sender, 0, amount, "");
         I721(info.box).mint(msg.sender, amount * info.boxReward);
+        emit Mint(msg.sender, amount, currencyAmount);
     }
 }
