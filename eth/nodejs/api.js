@@ -703,6 +703,20 @@ app.get("/prizepool", async(req, res)=>{
   	}
 })
 
+// header: xtoken
+app.post("/gameTestAccount", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select * from newGameTestReg where uid=?", [user.id])
+		if(sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length == 0) throw new Error("not in test account list")
+		res.send({success:true, result:sqlres.result[0]})
+  	}catch(e){
+    	console.error(e)
+    	res.send({success:false, result:e.toString()})
+  	}
+})
+
 app.listen('9000', ()=>{
 	console.log('listen:9000')
 })

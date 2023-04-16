@@ -16,3 +16,8 @@ star_inviter_padding_list.json
 sql.js
 team_mintbox.js
 maxLevels.js
+bonus.js
+discord_bot.js
+.env
+gameapi.js
+getBadgeHolders.js
