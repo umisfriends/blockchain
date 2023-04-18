@@ -17,7 +17,7 @@ const topics = [[topic_registry,topic_mintbox,topic_buystar]]
 const address = [config.addr_registry,config.addr_offerbox,config.addr_offerStar]
 const topic_mint = '0x4c209b5fc8ad50758f13e2e1088ba56a560dff690a1c6fef26394f4c03821c4f'
 const topics2 = [[topic_mint,topic_buystar]]
-const address2 = [config.addr_offerbadge2,config.addr_offerbox2,config.addr_offerStar]
+const address2 = [config.addr_offerbadge2, config.addr_offerbox2,config.addr_offerStar]
 
 const mysqlPool = mysql.createPool(key.mysql)
 const mysqlQuery = async(sql, values) => {

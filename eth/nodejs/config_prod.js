@@ -37,5 +37,9 @@ const config = {
 	addr_offerbox2:'0xCeA816764cf31708376Fe36c2a881b4F210208b4'.toLowerCase(),
 	addr_offerbadge2:'0x8972Cdd4c96Ec3111d03b7050f2A3da842824e8a'.toLowerCase(),
 	amount_box_buy3usdt:600,
+	applink:{suffix:'apk',
+		prefix:'https://pub-4a5c49f38d2846ae93d71dde34403f65.r2.dev',
+		version:'V0.1.3alpha',
+		package:'com.umi.umisfriends'},
 }
 module.exports = config

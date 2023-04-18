@@ -11,6 +11,8 @@ const config = {
 	addr_usdt:"0xdFe9bE18C7DBc409911750bD8253dA5a2Af5B8Bb".toLowerCase(),
 	addr_claim1155:"0xc3Aa62d46688fCfb676E84b7D660BBF7C787f0bE".toLowerCase(),
 	addr_claim20:"0x1b6eBFfD39984d97868b08E6E95aA80153bE69ff".toLowerCase(),
+	addr_badge1155_2:"0x0Af8335441f9c4F1c2331f0695fbB9268fc37Cc0".toLowerCase(),
+	addr_standardTeam:"0x33E3100D6CB39719f138a8665e7A110be5A604E6".toLowerCase(),
 	decimals_usdt:1e18,
 	percent_team_invite:20,
 	amount_game_rewardufd:500,
@@ -37,5 +39,10 @@ const config = {
 	addr_offerbox2:'0xB23e7fF4fEB1F742e1a0863417E1833466de4A65'.toLowerCase(),
 	addr_offerbadge2:"0xeb630433672Cf3C81d1cF4940786D3a04F40AF9B".toLowerCase(),
 	amount_box_buy3usdt:600,
+	applink:{suffix:'apk',
+		prefix:'https://pub-4a5c49f38d2846ae93d71dde34403f65.r2.dev',
+		version:'V0.1.3alpha',
+		package:'com.umi.umisfriends'},
+	
 }
 module.exports = config
