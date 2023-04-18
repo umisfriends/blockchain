@@ -203,7 +203,7 @@ app.post("/upload2", async (req, res) => {
 	if(sqlres.code < 0) throw sqlres.result
 	var quantity = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].quantity)
 	if(quantity == 0) throw new Error("not mint badge")*/
-    var web3 = new Web3(rpc3)
+    var web3 = new Web3(key.rpc3)
 	var contract = new web3.eth.Contract(abi_team, config.addr_standardTeam)
 	var register = await contract.methods.registered(Web3.utils.toChecksumAddress(user.address)).call()
 	if(!register) throw new Error("not transfer UBadge[0] to StandardTeamCreater")
