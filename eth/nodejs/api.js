@@ -207,24 +207,39 @@ app.post("/upload2", async (req, res) => {
 	var contract = new web3.eth.Contract(abi_team, config.addr_standardTeam)
 	var register = await contract.methods.registered(Web3.utils.toChecksumAddress(user.address)).call()
 	if(!register) throw new Error("not transfer UBadge[0] to StandardTeamCreater")
-	var inviter = null
-	if(Web3.utils.isAddress(user.team)){
-		inviter = user.team
-	}else if(req.query.inviter != undefined && req.query.inviter != ''){
-		inviter = req.query.inviter.toLowerCase()
-	}
 	var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
     if(sqlres.code < 0) throw sqlres.result
     if(sqlres.result.length == 0){
-    	if(user.address.toLowerCase() == user.team.toLowerCase()) throw new Error("team leader not allowed")
-    	sqlres = await mysqlQuery("select * from team where uid=?", [inviter])
-    	if(sqlres.code < 0) throw sqlres.result
-    	if(sqlres.result.length == 0) throw new Error("inviter is not team leader")
-    	if(Number(sqlres.result[0].type) != 0) throw new Error("not genesis team")
+    	if(user.team != null && user.address.toLowerCase() == user.team.toLowerCase())
+    		throw new Error("team leader not allowed")
+    	var inviter = null
+    	var originTeam = null
+    	if(Web3.utils.isAddress(user.team)){
+    		sqlres = await mysqlQuery("select * from team where leader=?", [user.team])
+    		if(sqlres.code < 0) throw sqlres.result
+    		if(sqlres.result.length == 0) throw new Error("team not exists")
+    		var team = sqlres.result[0]
+    		if(Number(team.type) != 0) {
+    			sqlres = await mysqlQuery("select * from team where leader=?", [team.inviter])
+    			if(sqlres.code < 0) throw sqlres.result
+    			if(sqlres.result.length == 0) throw new Error("generate team not exists")
+    			if(Number(sqlres.result[0].type) != 0) throw new Error("inviter not generate team")
+    			originTeam = team.leader
+    			team = sqlres.result[0]
+    		}
+    		inviter = team.leader
+    	}else{
+    		sqlres = await mysqlQuery("select * from team where uid=?", [req.query.inviter])
+    		if(sqlres.code < 0) throw sqlres.result
+    		if(sqlres.result.length == 0) throw new Error("team not exists")
+    		var team = sqlres.result[0]
+    		if(Number(team.type) != 0) throw new Error("inviter not generate team")
+    		inviter = team.leaver
+    	}
     	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,payhash,type,createTime) values(?,?,?,?,?,?,?,?,?,now())`,
     		[user.address, user.id, name, logo, description, email, inviter,'standard_'+user.address, 1])
     	if(sqlres.code < 0) throw sqlres.result
-    	sqlres = await mysqlQuery("update user set team=?, joinTime=now() where id=?", [user.address, user.id])
+    	sqlres = await mysqlQuery("update user set team=?,originTeam=?,joinTime=now() where id=?", [user.address, originTeam, user.id])
 	}else{
 		sqlres = await mysqlQuery('update team set name=?,logo=?,description=?,email=? where leader=?', [name, logo, description, email, user.address])
 	}
