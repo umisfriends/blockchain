@@ -199,8 +199,7 @@ app.post("/upload2", async (req, res) => {
     var description = req.query.description
     var email = req.query.email
     if(!Web3.utils.isAddress(user.address)) throw new Error("invalid user address")
-	if(user.address.toLowerCase() == user.team.toLowerCase()) throw new Error("team leader not allowed")
-    /*var sqlres = await mysqlQuery('select sum(quantity) as quantity from mintbadge where minter=?', [user.address])
+	/*var sqlres = await mysqlQuery('select sum(quantity) as quantity from mintbadge where minter=?', [user.address])
 	if(sqlres.code < 0) throw sqlres.result
 	var quantity = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].quantity)
 	if(quantity == 0) throw new Error("not mint badge")*/
@@ -217,6 +216,7 @@ app.post("/upload2", async (req, res) => {
 	var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
     if(sqlres.code < 0) throw sqlres.result
     if(sqlres.result.length == 0){
+    	if(user.address.toLowerCase() == user.team.toLowerCase()) throw new Error("team leader not allowed")
     	sqlres = await mysqlQuery("select * from team where uid=?", [inviter])
     	if(sqlres.code < 0) throw sqlres.result
     	if(sqlres.result.length == 0) throw new Error("inviter is not team leader")
