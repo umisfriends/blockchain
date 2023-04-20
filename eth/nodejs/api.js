@@ -199,6 +199,7 @@ app.post("/upload2", async (req, res) => {
     var description = req.query.description
     var email = req.query.email
     if(!Web3.utils.isAddress(user.address)) throw new Error("invalid user address")
+	if(user.address.toLowerCase() == user.team.toLowerCase()) throw new Error("team leader not allowed")
     /*var sqlres = await mysqlQuery('select sum(quantity) as quantity from mintbadge where minter=?', [user.address])
 	if(sqlres.code < 0) throw sqlres.result
 	var quantity = sqlres.result.length == 0 ? 0 : Number(sqlres.result[0].quantity)
@@ -207,17 +208,19 @@ app.post("/upload2", async (req, res) => {
 	var contract = new web3.eth.Contract(abi_team, config.addr_standardTeam)
 	var register = await contract.methods.registered(Web3.utils.toChecksumAddress(user.address)).call()
 	if(!register) throw new Error("not transfer UBadge[0] to StandardTeamCreater")
-    var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
+	var inviter = null
+	if(Web3.utils.isAddress(user.team)){
+		inviter = user.team
+	}else if(req.query.inviter != undefined && req.query.inviter != ''){
+		inviter = req.query.inviter.toLowerCase()
+	}
+	var sqlres = await mysqlQuery(`select * from team where leader=?`, [user.address])
     if(sqlres.code < 0) throw sqlres.result
     if(sqlres.result.length == 0){
-    	var inviter = null
-    	if(req.query.inviter != undefined && req.query.inviter != ''){
-    		sqlres = await mysqlQuery("select * from team where uid=?", [req.query.inviter])
-    		if(sqlres.code < 0) throw sqlres.result
-    		if(sqlres.result.length == 0) throw new Error("inviter is not team leader")
-    		if(Number(sqlres.result[0].type) != 0) throw new Error("not genesis team")
-    		inviter = sqlres.result[0].leader
-    	}
+    	sqlres = await mysqlQuery("select * from team where uid=?", [inviter])
+    	if(sqlres.code < 0) throw sqlres.result
+    	if(sqlres.result.length == 0) throw new Error("inviter is not team leader")
+    	if(Number(sqlres.result[0].type) != 0) throw new Error("not genesis team")
     	sqlres = await mysqlQuery(`insert into team(leader,uid,name,logo,description,email,inviter,payhash,type,createTime) values(?,?,?,?,?,?,?,?,?,now())`,
     		[user.address, user.id, name, logo, description, email, inviter,'standard_'+user.address, 1])
     	if(sqlres.code < 0) throw sqlres.result
