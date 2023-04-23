@@ -267,6 +267,55 @@ const scanBlock = async()=>{
 	}
 }
 
+const rewardBox2 = async(to, boxAmount)=>{
+	var sqlres = await mysqlQuery("select * from user where address=?", [to])
+	if(sqlres.code < 0){
+		console.error(sqlres.result)
+	}else if(sqlres.result.length > 0){
+		var user = sqlres.result[0]
+		var leader = user.team
+		var inviters = []
+		for(var j = 0; j < 3; j++){
+			if(!Web3.utils.isAddress(leader)) break
+			sqlres = await mysqlQuery("select * from team where leader=?", leader)
+			if(sqlres.code < 0){
+				console.error(sqlres.result)
+				break
+			}else if(sqlres.result.length > 0){
+				inviters.push({leader,genesis:Number(sqlres.result[0].type)==0})
+				leader=sqlres.result[0].inviter
+			}else{
+				break
+			}
+		}					
+		if(inviters.length > 0){
+			var amounts = []
+			if(inviters.length == 1){
+				amounts = inviters[0].genesis ? [boxAmount*250] : [boxAmount*150]
+			}else if(inviters.length == 2){
+				amounts = inviters[0].genesis ? [boxAmount*250,boxAmount*50] : [boxAmount*150,boxAmount*100]
+			}else {
+				amounts = inviters[0].genesis ? [boxAmount*250,boxAmount*50] : [boxAmount*150,boxAmount*100,boxAmount*50]
+			}
+			//if(user.address == inviters[0].leader) amounts[0] = 0 
+			for(var j = 0; j < amounts.length; j++){
+				//if(amounts[j] == 0) continue
+				sqlres = await mysqlQuery("select * from user where address=?", inviters[j].leader)
+				if(sqlres.code < 0){
+					console.error(sqlres.result)
+				}else if(sqlres.result.length>0){
+					var uid = sqlres.result[0].id
+					sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${amounts[j]} where id=?`, [uid])
+					if(sqlres.code < 0) console.error(sqlres.result)
+					sqlres = await mysqlQuery('insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())',
+						[uid, 'usdt', 'mintbox_team_'+j, amounts[j]])
+					if(sqlres.code < 0) console.error(sqlres.result)
+				}
+			}
+		}
+	}
+}
+
 const scanBlock2 = async()=>{
 	try{
 		var web3 = new Web3(key.rpc)
@@ -294,6 +343,7 @@ const scanBlock2 = async()=>{
 				if(sqlres.result.length == 0){
 					sqlres = await mysqlQuery("insert into mintbadge(hash,minter,quantity,amount) values(?,?,?,?)", [hash, minter, quantity, uAmount(amount)])
 					if(sqlres.code <0) throw sqlres.result
+					await rewardBox2(minter, Number(quantity)*5)
 				}
 			}else if(log.address.toLowerCase()==config.addr_offerbox2 && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_mint){
 				var round = 1
@@ -307,53 +357,7 @@ const scanBlock2 = async()=>{
 					sqlres = await mysqlQuery("insert into mintbox(hash,round,account,boxAmount,costAmount) values(?,?,?,?,?)",
 						[hash,round,to,boxAmount,uAmount(costAmount)])
 					if(sqlres.code < 0) throw sqlres.result
-					sqlres = await mysqlQuery("select * from user where address=?", [to])
-					if(sqlres.code < 0){
-						console.error(sqlres.result)
-					}else if(sqlres.result.length > 0){
-						var user = sqlres.result[0]
-						var leader = user.team
-						var inviters = []
-						for(var j = 0; j < 3; j++){
-							if(!Web3.utils.isAddress(leader)) break
-							sqlres = await mysqlQuery("select * from team where leader=?", leader)
-							if(sqlres.code < 0){
-								console.error(sqlres.result)
-								break
-							}else if(sqlres.result.length > 0){
-								inviters.push({leader,genesis:Number(sqlres.result[0].type)==0})
-								leader=sqlres.result[0].inviter
-							}else{
-								break
-							}
-						}
-						
-						if(inviters.length > 0){
-							var amounts = []
-							if(inviters.length == 1){
-								amounts = inviters[0].genesis ? [boxAmount*250] : [boxAmount*150]
-							}else if(inviters.length == 2){
-								amounts = inviters[0].genesis ? [boxAmount*250,boxAmount*50] : [boxAmount*150,boxAmount*100]
-							}else {
-								amounts = inviters[0].genesis ? [boxAmount*250,boxAmount*50] : [boxAmount*150,boxAmount*100,boxAmount*50]
-							}
-							//if(user.address == inviters[0].leader) amounts[0] = 0 
-							for(var j = 0; j < amounts.length; j++){
-								//if(amounts[j] == 0) continue
-								sqlres = await mysqlQuery("select * from user where address=?", inviters[j].leader)
-								if(sqlres.code < 0){
-									console.error(sqlres.result)
-								}else if(sqlres.result.length>0){
-									var uid = sqlres.result[0].id
-									sqlres = await mysqlQuery(`update user set rewardUSDT=rewardUSDT+${amounts[j]} where id=?`, [uid])
-									if(sqlres.code < 0) console.error(sqlres.result)
-									sqlres = await mysqlQuery('insert into reward_record(uid,token,reason,amount,createTime) values(?,?,?,?,now())',
-										[uid, 'usdt', 'mintbox_team_'+j, amounts[j]])
-									if(sqlres.code < 0) console.error(sqlres.result)
-								}
-							}
-						}
-					}
+					await rewardBox2(to, boxAmount)
 				}
 			}else if(log.address.toLowerCase()==config.addr_offerStar && log.topics.length==2 && log.data.length==194 && log.topics[0]==topic_buystar){
 				var account = '0x'+log.topics[1].substr(26)
@@ -584,4 +588,4 @@ const scanLevel2 = async()=>{
 
 //scanBlock()
 //scanGame()
-module.exports = {scanBlock, scanBlock2, scanGame, scanGame2, scanLevel, scanLevel2}
+module.exports = {scanBlock, scanBlock2, scanGame, scanGame2, scanLevel, scanLevel2, rewardBox2}

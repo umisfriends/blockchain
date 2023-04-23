@@ -13,6 +13,8 @@ const key = require('./key')
 const app = express()
 const abi_box = require('./abi/Box721.json')
 const abi_team = require('./abi/StandardTeamCreator.json')
+const abi_badge = require('./abi/Badge1155.json')
+const gameapi = require('./gameapi.js')
 
 if(!fs.existsSync(config.uploadDir)) fs.mkdirSync(config.uploadDir)
 
@@ -721,12 +723,29 @@ app.get("/prizepool", async(req, res)=>{
 
 // header: xtoken
 app.post("/gameTestAccount", async(req, res)=>{
+	var result
 	try{
 		var user = await getUser(req.headers['x-token'])
 		var sqlres = await mysqlQuery("select * from newGameTestReg where uid=?", [user.id])
 		if(sqlres.code < 0) throw sqlres.result
-		if(sqlres.result.length == 0) throw new Error("not in test account list")
-		res.send({success:true, result:sqlres.result[0]})
+		if(sqlres.result.length == 0) {
+			if(!Web3.utils.isAddress(user.address)) throw new Error("address not bind")
+			var web3 = new Web3(key.rpc1)
+			var contract = new web3.eth.Contract(abi_badge, config.addr_badge1155)
+			var balance = await contract.methods.balanceOf(user.address, 0).call()
+			if(balance == 0) throw new Error("not in test account list")
+			var uid = user.id
+			var a = user.address.toLowerCase()
+			var password = gameapi.getPassword(a)
+			await gameapi.regTestAccount(uid, a, password)
+			sqlres = await mysqlQuery("replace into newGameTestReg(uid,address,password) values(?,?,?)",
+					[uid,a,password])
+			if(sqlres.code < 0) console.error(sqlres.result)
+			result = {uid, address:a, password}
+		}else{
+			result = sqlres.result[0]
+		}
+		res.send({success:true, result})
   	}catch(e){
     	console.error(e)
     	res.send({success:false, result:e.toString()})
