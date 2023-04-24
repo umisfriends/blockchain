@@ -752,6 +752,40 @@ app.post("/gameTestAccount", async(req, res)=>{
   	}
 })
 
+// header:x-token
+app.post("/demo_level", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery2("select * from tbl_userdata where uid=?", [user.id])
+		if (sqlres.code < 0) throw sqlres.result
+		if (sqlres.result.length == 0) throw new Error("user not exists")
+		res.send({success:true, result:sqlres.result[0].level})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header:x-token
+// param:inviter(uid)
+app.post("/discord_inviter", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select * from user where id=?", [inviter])
+		if(sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length == 0) throw new Error("inviter not registered")
+		sqlres = await mysqlQuery("select * from discord_inviter where uid=?)", [user.id])
+		if (sqlres.code < 0) throw sqlres.result
+		if (sqlres.result.length > 0) throw new Error("already invited")
+		sqlres = await mysqlQuery("insert into discord_inviter(uid,inviter,ctime) values(?,?,now())")
+		if(sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:'OK'})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
 app.get("/applink", (req, res)=>{
 	try{
 		var a = config.applink
