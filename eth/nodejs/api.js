@@ -752,11 +752,10 @@ app.post("/gameTestAccount", async(req, res)=>{
   	}
 })
 
-// header:x-token
-app.post("/demo_level", async(req, res)=>{
+// param:uid
+app.get("/demo_level", async(req, res)=>{
 	try{
-		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery2("select * from tbl_userdata where uid=?", [user.id])
+		var sqlres = await mysqlQuery2("select * from tbl_userdata where uid=?", [req.query.uid])
 		if (sqlres.code < 0) throw sqlres.result
 		if (sqlres.result.length == 0) throw new Error("user not exists")
 		res.send({success:true, result:sqlres.result[0].level})
@@ -766,11 +765,10 @@ app.post("/demo_level", async(req, res)=>{
 	}
 })
 
-// header:x-token
-app.post("/wl_discord", async(req, res)=>{
+// param: address
+app.get("/wl_discord", async(req, res)=>{
 	try{
-		var user = await getUser(req.headers['x-token'])
-		var sqlres = await mysqlQuery2("select * from discord where address=?", [user.address.toLowerCase()])
+		var sqlres = await mysqlQuery2("select * from discord where address=?", [req.query.address.toLowerCase()])
 		if (sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result.length>0})
 	}catch(e){
