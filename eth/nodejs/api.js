@@ -767,6 +767,19 @@ app.post("/demo_level", async(req, res)=>{
 })
 
 // header:x-token
+app.post("/wl_discord", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery2("select * from discord where address=?", [user.address.toLowerCase()])
+		if (sqlres.code < 0) throw sqlres.result
+		res.send({success:true, result:sqlres.result.length>0})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header:x-token
 // param:inviter(uid)
 app.post("/discord_inviter", async(req, res)=>{
 	try{
