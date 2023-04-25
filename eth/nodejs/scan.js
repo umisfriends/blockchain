@@ -343,7 +343,10 @@ const scanBlock2 = async()=>{
 				if(sqlres.result.length == 0){
 					sqlres = await mysqlQuery("insert into mintbadge(hash,minter,quantity,amount) values(?,?,?,?)", [hash, minter, quantity, uAmount(amount)])
 					if(sqlres.code <0) throw sqlres.result
-					await rewardBox2(minter, Number(quantity)*5)
+					var boxAmount = Number(quantity)*5
+					sqlres = await mysqlQuery("insert into mintbox(hash,round,account,boxAmount,costAmount) values(?,?,?,?,?)",
+							[hash, 1, minter, boxAmount, uAmount(amount)])
+					await rewardBox2(minter, boxAmount)
 				}
 			}else if(log.address.toLowerCase()==config.addr_offerbox2 && log.topics.length==2 && log.data.length==130 && log.topics[0]==topic_mint){
 				var round = 1
