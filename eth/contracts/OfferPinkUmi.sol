@@ -12,7 +12,8 @@ contract OfferPinkUmi is Ownable{
     mapping(address => bool) public minted;
     event Mint(address indexed account);
     
-    constructor(address _signer) {
+    constructor(I721 _nft, address _signer) {
+        nft = _nft;
         signer = _signer;
     }
     
@@ -27,5 +28,6 @@ contract OfferPinkUmi is Ownable{
         bytes32 hash = keccak256(abi.encodePacked(block.chainid, address(this), "mint", msg.sender, deadline));
         require(ECDSA.recover(hash, v, r, s) == signer, "sign error");
         nft.mint(msg.sender, 1);
+        emit Mint(msg.sender);
     }
 }
