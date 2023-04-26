@@ -43,7 +43,7 @@ const config = {
 		prefix:'https://pub-4a5c49f38d2846ae93d71dde34403f65.r2.dev',
 		version:'V0.1.3alpha',
 		package:'com.umi.umisfriends'},
-	addr_offerPinkUmi:"0xB65d0471a1D22f058Ac5cBfd0822b7e6b20e4e0D".toLowerCase(),
+	addr_offerPinkUmi:"0xc3Aa62d46688fCfb676E84b7D660BBF7C787f0bE".toLowerCase(),
 	
 }
 module.exports = config
