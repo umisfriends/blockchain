@@ -798,6 +798,18 @@ app.post("/mintPinkUmi_sign", async(req, res)=>{
 	}
 })
 
+app.get("/discord_inviter_count", async(req, res)=>{
+	try{
+		var sqlres = await mysqlQuery("select count(*) as count from discord_inviter", [])
+		if(sqlres.code < 0) throw sqlres.result
+		var result = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].count)
+		res.send({success:true, result})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
 // header:x-token
 // param:inviter(uid)
 app.post("/discord_inviter", async(req, res)=>{
@@ -807,7 +819,7 @@ app.post("/discord_inviter", async(req, res)=>{
 		var sqlres = await mysqlQuery("select * from user where id=?", [inviter])
 		if(sqlres.code < 0) throw sqlres.result
 		if(sqlres.result.length == 0) throw new Error("inviter not registered")
-		sqlres = await mysqlQuery("select * from discord_inviter where uid=?)", [user.id])
+		sqlres = await mysqlQuery("select * from discord_inviter where uid=?", [user.id])
 		if (sqlres.code < 0) throw sqlres.result
 		if (sqlres.result.length > 0) throw new Error("already invited")
 		sqlres = await mysqlQuery("insert into discord_inviter(uid,inviter,ctime) values(?,?,now())",
