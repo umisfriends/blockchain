@@ -786,8 +786,8 @@ app.post("/mintPinkUmi_sign", async(req, res)=>{
 		var sqlres = await mysqlQuery("select * from discord where address=?", [address])
 		if (sqlres.code < 0) throw sqlres.result
 		if (sqlres.result.length == 0) throw new Error("not int whitelist")
+		const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
 		var data = Web3.utils.encodePacked(config.chainid, config.addr_offerPinkUmi, "mint", address, deadline)
-    	const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
     	const hash = Web3.utils.sha3(data)
     	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
 		const result = {address,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
@@ -803,13 +803,15 @@ app.post("/mintPinkUmi_sign", async(req, res)=>{
 app.post("/discord_inviter", async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
+		var inviter = req.query.inviter
 		var sqlres = await mysqlQuery("select * from user where id=?", [inviter])
 		if(sqlres.code < 0) throw sqlres.result
 		if(sqlres.result.length == 0) throw new Error("inviter not registered")
 		sqlres = await mysqlQuery("select * from discord_inviter where uid=?)", [user.id])
 		if (sqlres.code < 0) throw sqlres.result
 		if (sqlres.result.length > 0) throw new Error("already invited")
-		sqlres = await mysqlQuery("insert into discord_inviter(uid,inviter,ctime) values(?,?,now())")
+		sqlres = await mysqlQuery("insert into discord_inviter(uid,inviter,ctime) values(?,?,now())",
+			[user.id, inviter])
 		if(sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:'OK'})
 	}catch(e){
