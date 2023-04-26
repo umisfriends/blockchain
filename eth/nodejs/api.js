@@ -768,9 +768,30 @@ app.get("/demo_level", async(req, res)=>{
 // param: address
 app.get("/wl_discord", async(req, res)=>{
 	try{
-		var sqlres = await mysqlQuery2("select * from discord where address=?", [req.query.address.toLowerCase()])
+		var sqlres = await mysqlQuery("select * from discord where address=?", [req.query.address.toLowerCase()])
 		if (sqlres.code < 0) throw sqlres.result
 		res.send({success:true, result:sqlres.result.length>0})
+	}catch(e){
+		console.error(e)
+		res.send({success:false, result:e.toString()})
+	}
+})
+
+// header:x-token
+app.post("/mintPinkUmi_sign", async(req, res)=>{
+	try{
+		var user = await getUser(req.headers['x-token'])
+		var address = user.address.toLowerCase()
+		if(!Web3.utils.isAddress(user.address)) throw new Error("address not bind")
+		var sqlres = await mysqlQuery("select * from discord where address=?", [address])
+		if (sqlres.code < 0) throw sqlres.result
+		if (sqlres.result.length == 0) throw new Error("not int whitelist")
+		var data = Web3.utils.encodePacked(config.chainid, config.addr_offerPinkUmi, "mint", address, deadline)
+    	const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
+    	const hash = Web3.utils.sha3(data)
+    	const sign = ethUtil.ecsign(ethUtil.toBuffer(hash), ethUtil.toBuffer(key.prikey))
+		const result = {address,deadline,v:sign.v,r:ethUtil.bufferToHex(sign.r),s:ethUtil.bufferToHex(sign.s)}
+		res.send({success:true, result})
 	}catch(e){
 		console.error(e)
 		res.send({success:false, result:e.toString()})
