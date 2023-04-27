@@ -798,9 +798,11 @@ app.post("/mintPinkUmi_sign", async(req, res)=>{
 	}
 })
 
-app.get("/discord_inviter_count", async(req, res)=>{
+// header:x-token
+app.post("/my_discord_inviter", async(req, res)=>{
 	try{
-		var sqlres = await mysqlQuery("select count(*) as count from discord_inviter", [])
+		var user = await getUser(req.headers['x-token'])
+		var sqlres = await mysqlQuery("select count(*) as count from discord_inviter where inviter=?", [user.id])
 		if(sqlres.code < 0) throw sqlres.result
 		var result = sqlres.result.length==0 ? 0 : Number(sqlres.result[0].count)
 		res.send({success:true, result})
