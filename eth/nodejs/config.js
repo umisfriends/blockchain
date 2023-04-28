@@ -41,7 +41,8 @@ const config = {
 	amount_box_buy3usdt:600,
 	applink:{suffix:'apk',
 		prefix:'https://pub-4a5c49f38d2846ae93d71dde34403f65.r2.dev',
-		version:'V0.1.4alpha',
+		version:'V0.1.5alpha',
 		package:'com.umi.umisfriends'},
+	addr_offerPinkUmi:"0xaB7E13EA2fcDc2bB19E88424AB382fd3510BC526".toLowerCase(),
 }
 module.exports = config
