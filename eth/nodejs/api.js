@@ -733,6 +733,7 @@ app.post("/gameTestAccount", async(req, res)=>{
 			var web3 = new Web3(key.rpc1)
 			var contract = new web3.eth.Contract(abi_badge, config.addr_badge1155)
 			var balance = await contract.methods.balanceOf(user.address, 0).call()
+			if(balance == 0) balance = await contract.methods.balanceOf(user.address, 1).call()
 			if(balance == 0) throw new Error("not in test account list")
 			var uid = user.id
 			var a = user.address.toLowerCase()
@@ -817,7 +818,7 @@ app.post("/my_discord_inviter", async(req, res)=>{
 app.post("/discord_inviter", async(req, res)=>{
 	try{
 		var user = await getUser(req.headers['x-token'])
-		if(new Date(user.ctime).getTime() + 60000 < new Date().getTime())
+		if(new Date(user.ctime).getTime() + 28860000 < new Date().getTime())
 			throw new Error("not new user")
 		if((user.p_ids != null && user.p_ids != "") || (user.team != null && user.team != ""))
 			throw new Error("already joined")
