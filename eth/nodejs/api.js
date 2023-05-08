@@ -771,6 +771,9 @@ app.get("/wl_discord", async(req, res)=>{
 	try{
 		var sqlres = await mysqlQuery("select * from discord where address=?", [req.query.address.toLowerCase()])
 		if (sqlres.code < 0) throw sqlres.result
+		if(sqlres.result.length == 0){
+			sqlres = await mysqlQuery("select * from wl_discord where address=?", [req.query.address.toLowerCase()])
+		}
 		res.send({success:true, result:sqlres.result.length>0})
 	}catch(e){
 		console.error(e)
