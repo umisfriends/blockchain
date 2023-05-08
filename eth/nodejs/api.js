@@ -789,6 +789,9 @@ app.post("/mintPinkUmi_sign", async(req, res)=>{
 		if(!Web3.utils.isAddress(user.address)) throw new Error("address not bind")
 		var sqlres = await mysqlQuery("select * from discord where address=?", [address])
 		if (sqlres.code < 0) throw sqlres.result
+		if (sqlres.result.length == 0){
+			sqlres = await mysqlQuery("select * from wl_discord where address=?", [address])
+		}
 		if (sqlres.result.length == 0) throw new Error("not int whitelist")
 		const deadline = Math.ceil(new Date().getTime()/1000)+config.timeout_sign
 		var data = Web3.utils.encodePacked(config.chainid, config.addr_offerPinkUmi, "mint", address, deadline)
