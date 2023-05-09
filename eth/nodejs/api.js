@@ -15,6 +15,7 @@ const abi_box = require('./abi/Box721.json')
 const abi_team = require('./abi/StandardTeamCreator.json')
 const abi_badge = require('./abi/Badge1155.json')
 const gameapi = require('./gameapi.js')
+const xgame = require('./xgame.js')
 
 if(!fs.existsSync(config.uploadDir)) fs.mkdirSync(config.uploadDir)
 
@@ -850,6 +851,54 @@ app.get("/applink", (req, res)=>{
 		var a = config.applink
 		a.link = `${a.prefix}/${a.package}.${a.version}.${a.suffix}`
 		res.send({success:true, result:[a]})
+	}catch(e){
+		console.error(e)
+    	res.send({success:false, result:e.toString()})
+	}
+})
+
+// param: timestamp address signature inviter(uid)
+app.post("/login", async(req, res)=>{
+	try{
+		var timestamp = Number(req.query.timestamp)
+		var now = Math.ceil(new Date().getTime()/1000)
+		if(timestamp + config.timeout_sign < now) throw new Error("timeout")
+		var msg = `${config.loginBase}${timestamp}`
+		var hash = ethUtil.hashPersonalMessage(Buffer.from(msg))
+		var signature = req.query.signature
+		if(signature.length != 132) throw new Error("invalid signature")
+		const r = ethUtil.toBuffer('0x'+signature.substr(2,64))
+		const s = ethUtil.toBuffer('0x'+signature.substr(66,64))
+		const v = Number('0x'+signature.substr(130,2))
+		var address = ethUtil.bufferToHex(ethUtil.publicToAddress(ethUtil.ecrecover(hash,v,r,s)))
+		if(address != req.query.address.toLowerCase()) throw new Error("sign error")
+		var sqlres = await mysqlQuery("select * from user where address=?", [address])
+		if(sqlres.code < 0) throw sqlres.result
+		var uid
+		if(sqlres.result.length == 0){
+			var p_ids = ""
+			var inviter = req.query.inviter
+			if(inviter.length > 0){
+				sqlres = await mysqlQuery("select * from user where address=?", [inviter])
+				if(sqlres.code < 0) throw sqlres.result
+				if(sqlres.result.length > 0) p_ids = sqlres.result[0].p_ids + "_" + inviter
+			}
+			sqlres = await mysqlQuery("insert into user(address,p_ids,ctime,up_time) values(?,?,now(),now())",
+				[address, p_ids])
+			if(sqlres.code < 0) throw sqlres.result
+			uid = sqlres.result.insertId;
+		}else{
+			uid = sqlres.result[0].id
+		}
+		await xgame.loadOrCreateAccount(uid,address)
+		var data = {
+        		ID: uid,
+        		Address: address,
+        		exp: Math.floor(new Date().getTime()/1000)+24*3600,
+        		iss: 'io'
+    		}
+    	var xtoken = jwt.sign(JSON.stringify(data), key.jwtkey)
+		res.send({success:true, result:{xtoken,address}})
 	}catch(e){
 		console.error(e)
     	res.send({success:false, result:e.toString()})

@@ -44,5 +44,6 @@ const config = {
 		version:'V0.1.5alpha',
 		package:'com.umi.umisfriends'},
 	addr_offerPinkUmi:"0xaB7E13EA2fcDc2bB19E88424AB382fd3510BC526".toLowerCase(),
+	loginBase:"Login umisfriends.com and timestamp is ",
 }
 module.exports = config
