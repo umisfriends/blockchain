@@ -858,8 +858,9 @@ app.get("/applink", (req, res)=>{
 })
 
 // param: timestamp address signature inviter(uid)
-app.post("/login", async(req, res)=>{
+app.get("/login", async(req, res)=>{
 	try{
+		console.log(req.query)
 		var timestamp = Number(req.query.timestamp)
 		var now = Math.ceil(new Date().getTime()/1000)
 		if(timestamp + config.timeout_sign < now) throw new Error("timeout")
@@ -877,14 +878,17 @@ app.post("/login", async(req, res)=>{
 		var uid
 		if(sqlres.result.length == 0){
 			var p_ids = ""
-			var inviter = req.query.inviter
-			if(inviter.length > 0){
+			var inviter = req.query?.inviter
+			if(inviter){
 				sqlres = await mysqlQuery("select * from user where address=?", [inviter])
 				if(sqlres.code < 0) throw sqlres.result
-				if(sqlres.result.length > 0) p_ids = sqlres.result[0].p_ids + "_" + inviter
+				if(sqlres.result.length > 0) {
+					var ppid = sqlres.result[0].p_ids
+					p_ids = (ppid == "") ? inviter : (ppid + "_" + inviter)
+				}
 			}
-			sqlres = await mysqlQuery("insert into user(address,p_ids,ctime,up_time) values(?,?,now(),now())",
-				[address, p_ids])
+			sqlres = await mysqlQuery("insert into user(address,username,avatar,p_ids,ctime,up_time) values(?,?,?,?,now(),now())",
+				[address, 'UmiFriends-'+address.substr(38), 'https://umisfriends.s3.ap-northeast-2.amazonaws.com/umisfriends.png', p_ids])
 			if(sqlres.code < 0) throw sqlres.result
 			uid = sqlres.result.insertId;
 		}else{

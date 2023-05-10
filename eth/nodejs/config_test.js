@@ -45,6 +45,10 @@ const config = {
 		package:'com.umi.umisfriends'},
 	addr_offerPinkUmi:"0xc3Aa62d46688fCfb676E84b7D660BBF7C787f0bE".toLowerCase(),
 	loginBase:"Login test.umisfriends.com and timestamp is ",
-	
+	addr_recharge:"0x5f2C4a960a59d78A3eA3A086154B2dFdb42Ff58c".toLowerCase(),
+	addr_usdt2:"0x0dEb1fB68Eda2fb9fab1512BE10015d1761BbB61".toLowerCase(),
+	addr_unt2:"0x4e61BC7CD9DACA4Ee778054844B6B36507Bb3dfb".toLowerCase(),
+	addr_img2:"0x3Fe6ca27d30CA4ac7CB35D2c2f8704e4fFD1fd76".toLowerCase(),
+	addr_box2:"0x02FFc78313a820AA283A09E7c0dF7964084732E6".toLowerCase(),
 }
 module.exports = config
